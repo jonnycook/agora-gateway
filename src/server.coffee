@@ -3,8 +3,8 @@ _ = require 'lodash'
 express = require 'express'
 bodyParser = require 'body-parser'
 request = require 'request'
-
 graph = require './graph'
+env = require './env'
 
 Graph =
 	rels:{}
@@ -260,7 +260,7 @@ class User
 		@initOutline =>
 			# @initShared =>
 				request {
-					url: "http://#{getUpdateServer()}/update.php?clientId=#{clientId}&userId=#{@id}",
+					url: "http://#{env.getUpdateServer()}/update.php?clientId=#{clientId}&userId=#{@id}",
 					method:'post'
 					form:
 						updateToken:updateToken
@@ -283,7 +283,7 @@ class User
 							# 			object = "decisions.#{id.substr 1}"
 							# 			if @shared[object]
 							# 				request {
-							# 					url: "http://#{getUpdateServer()}/delete.php",
+							# 					url: "http://#{env.getUpdateServer()}/delete.php",
 							# 					method:'post'
 							# 					form:
 							# 						userId:@id
@@ -552,7 +552,7 @@ class User
 		opts.claim ?= false
 		opts.collaborators ?= true
 		request {
-			url: "http://#{getUpdateServer()}/data.php?userId=#{@id}&object=#{object}&claim=#{if opts.claim then 1 else 0}&collaborators=#{if opts.collaborators then 1 else 0}",
+			url: "http://#{env.getUpdateServer()}/data.php?userId=#{@id}&object=#{object}&claim=#{if opts.claim then 1 else 0}&collaborators=#{if opts.collaborators then 1 else 0}",
 		}, (err, response, body) ->
 			cb body
 
@@ -606,27 +606,19 @@ class User
 		else
 			cb()
 
-connection = mysql.createConnection
-	host:'localhost'
-	user:'root'
-	password:''
-	database:'agora'
-
+connection = mysql.createConnection env.db
 connection.connect()
 
 app = express()
 app.use(bodyParser());
-app.listen 3000
+app.listen env.httpPort
 
-portServers = ['localhost:3001']
-portForClient = (clientId) -> 'localhost:3001'
 
-getUpdateServer = -> 'ext.agora.dev/ext/ws'
 
 groupClientIdsByPort = (clientIds) ->
 	grouped = {}
 	for clientId in clientIds
-		port = portForClient clientId
+		port = env.portForClient clientId
 		grouped[port] ?= []
 		grouped[port].push clientId
 	grouped
@@ -729,7 +721,7 @@ start = ->
 	app.post '/update', (req, res) ->
 		if req.body.userId == '0'
 			request {
-				url: "http://#{getUpdateServer()}/update.php?clientId=#{req.body.clientId}",
+				url: "http://#{env.getUpdateServer()}/update.php?clientId=#{req.body.clientId}",
 				method:'post'
 				form:
 					updateToken:req.body.updateToken
@@ -790,20 +782,21 @@ start = ->
 
 	app.post '/retrieve', (req, res) ->
 		request {
-			url: "http://#{getUpdateServer()}/retrieve.php?clientId=#{req.body.clientId}",
+			url: "http://#{env.getUpdateServer()}/retrieve.php?clientId=#{req.body.clientId}",
 			method: 'post'
 			form:
 				toRetrieve:req.body.records
 		}, (err, response, body) ->
 			res.send body
 
-count = 0
-for portServer in portServers
-	request {
-		url: 'http://localhost:3001/gateway/started',
-		method:'post'
-		form:
-			serverId:serverId
-	}, ->
-		if ++count == portServers.length
-			start()
+env.init ->
+	count = 0
+	for portServer in env.portServers
+		request {
+			url: "http://#{portServer}/gateway/started",
+			method:'post'
+			form:
+				serverId:serverId
+		}, ->
+			if ++count == env.portServers.length
+				start()
