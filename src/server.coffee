@@ -203,12 +203,17 @@ userIdForClientId = (clientId, cb) ->
 		connection.query "SELECT user_id FROM clients WHERE client_id = '#{clientId}'", (error, rows, fields) ->
 			cb userIdsByClientId[clientId] = parseInt rows[0].user_id
 
-parse = (json) -> 
-	try
+parse = (json, cbs=null) -> 
+	if cbs
+		try
+			cbs.success JSON.parse json
+		catch e
+			# console.log json
+			cbs.error()
+			# throw e
+	else
+		# TODO: handle errors here
 		JSON.parse json
-	catch e
-		console.log json
-		throw e
 
 class User
 	@users:{}
@@ -269,172 +274,170 @@ class User
 					if body == 'invalid update token' 
 					else if body == 'invalid client id'
 					else
-						try
-							body = parse body
-						catch e
-							console.log body
-							throw e
+						parse body,
+							error: (error) ->
+								cb 'error'
 
-						if body.status == 'ok'
-							# console.log body.changes
-							# if body.changes && body.changes.decisions
-							# 	for id,change of body.changes.decisions
-							# 		if change == 'deleted'
-							# 			object = "decisions.#{id.substr 1}"
-							# 			if @shared[object]
-							# 				request {
-							# 					url: "http://#{env.getUpdateServer()}/delete.php",
-							# 					method:'post'
-							# 					form:
-							# 						userId:@id
-							# 						object:object
-							# 				}
+							success: (body) ->
+								if body.status == 'ok'
+									# console.log body.changes
+									# if body.changes && body.changes.decisions
+									# 	for id,change of body.changes.decisions
+									# 		if change == 'deleted'
+									# 			object = "decisions.#{id.substr 1}"
+									# 			if @shared[object]
+									# 				request {
+									# 					url: "http://#{env.getUpdateServer()}/delete.php",
+									# 					method:'post'
+									# 					form:
+									# 						userId:@id
+									# 						object:object
+									# 				}
 
-							if @subscribers
-								delete body.changes.products
-								delete body.changes.product_variants
+									if @subscribers
+										delete body.changes.products
+										delete body.changes.product_variants
 
-								changesForSubscribers = {}
-								if @subscribers['*']
-									changesForSubscribers['*'] = body.changes
+										changesForSubscribers = {}
+										if @subscribers['*']
+											changesForSubscribers['*'] = body.changes
 
-								if @subscribers['/']
-									changesForSubscribers['/'] = body.changes
+										if @subscribers['/']
+											changesForSubscribers['/'] = body.changes
 
-								if @subscribers['@'] && body.changes?.users?["G#{@id}"]
-									id = "G#{@id}"
-									changes = users:{}
-									changes.users[id] = body.changes.users[id]
-									changesForSubscribers['@'] = changes
+										if @subscribers['@'] && body.changes?.users?["G#{@id}"]
+											id = "G#{@id}"
+											changes = users:{}
+											changes.users[id] = body.changes.users[id]
+											changesForSubscribers['@'] = changes
 
-								broadcast = =>
-									for object,changes of changesForSubscribers
-										subscribers = _.without @subscribers[object], clientId
-										if subscribers.length
-											grouped = groupClientIdsByPort subscribers
-											changes = JSON.stringify body.changes
-											for port, clientIds of grouped
-												request
-													url: "http://#{port}/update",
-													method: 'post',
-													form:
-														clientIds:clientIds
-														userId:@id
-														changes:changes
+										broadcast = =>
+											for object,changes of changesForSubscribers
+												subscribers = _.without @subscribers[object], clientId
+												if subscribers.length
+													grouped = groupClientIdsByPort subscribers
+													changes = JSON.stringify body.changes
+													for port, clientIds of grouped
+														request
+															url: "http://#{port}/update",
+															method: 'post',
+															form:
+																clientIds:clientIds
+																userId:@id
+																changes:changes
 
-									cb JSON.stringify
-										status:'ok'
-										updateToken:body.updateToken
-										mapping:body.mapping
+											cb JSON.stringify
+												status:'ok'
+												updateToken:body.updateToken
+												mapping:body.mapping
 
-								if @outline
-									addChangesForSubscribers = (object, table, id, changes) =>
-										if @subscribers[object]
-											changesForSubscribers[object] ?= {}
-											changesForSubscribers[object][table] ?= {}
-											if !changesForSubscribers[object][table][id]
-												changesForSubscribers[object][table][id] = changes
-											else
-												_.extend changesForSubscribers[object][table][id], changes
+										if @outline
+											addChangesForSubscribers = (object, table, id, changes) =>
+												if @subscribers[object]
+													changesForSubscribers[object] ?= {}
+													changesForSubscribers[object][table] ?= {}
+													if !changesForSubscribers[object][table][id]
+														changesForSubscribers[object][table][id] = changes
+													else
+														_.extend changesForSubscribers[object][table][id], changes
 
-									add = (table, id, changes) =>
-										r = if table == 'activity'
-											Graph.owner @outline, table, changes
-										else
-											table:table, record:@outline[table][id]
-
-										while r
-											addChangesForSubscribers "#{r.table}.#{r.record.id}", table, 'G' + id, changes
-											r = Graph.owner @outline, r.table, r.record
-
-									for table, tableChanges of body.changes
-										if Graph.inGraph table
-											for id,recordChanges of tableChanges
-												if recordChanges != 'deleted'
-													id = parseInt id.substr 1
-													@addToOutline table, id, recordChanges
-
-									for table, tableChanges of body.changes
-										if Graph.inGraph table
-											for id,recordChanges of tableChanges
-												add table, parseInt(id.substr 1), recordChanges
-
-									count = 0
-									toDelete = {}
-									for table, tableChanges of body.changes										
-										if Graph.inGraph table
-											@outline[table] ?= {}
-											for id,recordChanges of tableChanges
-												id = parseInt id.substr 1
-												if recordChanges == 'deleted'
-													children = Graph.children @outline, table, @outline[table][id]
-													for child in children
-														toDelete[child.table] ?= {}
-														toDelete[child.table][child.record.id] = true
-													delete @outline[table][id]
+											add = (table, id, changes) =>
+												r = if table == 'activity'
+													Graph.owner @outline, table, changes
 												else
-													# TODO: make this more abstract
-													# if recordChanges.element_type && recordChanges.element_type in ['Product', 'ProductVariant']
-													# 	continue
+													table:table, record:@outline[table][id]
 
-													fields = Graph.fields[table]
-													if fields
-														for field of fields
-															if Graph.fields[table][field] == 'id' && (value = recordChanges[field])
-																newId = parseInt value.substr 1
+												while r
+													addChangesForSubscribers "#{r.table}.#{r.record.id}", table, 'G' + id, changes
+													r = Graph.owner @outline, r.table, r.record
 
-																if r = Graph.fieldRel?[table]?[field]
-																	t = r.table
-																	relTable = if _.isFunction t
-																		t @outline[table][id]
-																	else
-																		t
+											for table, tableChanges of body.changes
+												if Graph.inGraph table
+													for id,recordChanges of tableChanges
+														if recordChanges != 'deleted'
+															id = parseInt id.substr 1
+															@addToOutline table, id, recordChanges
 
-																	if Graph.inGraph relTable
-																		# console.log 'asdf', table, field, newId, relTable, value
-																		if !@outline[relTable]?[newId]
-																			# console.log 'new branch', table, field, newId, relTable, value
-																			++count
-																			do (table, id) =>
-																				@data "#{relTable}.#{newId}", ((data) =>
-																					try
-																						data = parse data
-																					catch e
-																						console.log data
-																						throw e
+											for table, tableChanges of body.changes
+												if Graph.inGraph table
+													for id,recordChanges of tableChanges
+														add table, parseInt(id.substr 1), recordChanges
 
-																					for dataTable, dataRecords of data
-																						for dataId, dataRecord of dataRecords
-																							dataId = parseInt(dataId.substr 1)
-																							@addToOutline dataTable, dataId, dataRecord
-																							add dataTable, dataId, dataRecord
-																					if !--count
-																						broadcast()
-																				), claim:true, collaborators:false
-																		else
-																			if toDelete[relTable]?[newId]
-																				delete toDelete[relTable][newId]
+											count = 0
+											toDelete = {}
+											for table, tableChanges of body.changes										
+												if Graph.inGraph table
+													@outline[table] ?= {}
+													for id,recordChanges of tableChanges
+														id = parseInt id.substr 1
+														if recordChanges == 'deleted'
+															children = Graph.children @outline, table, @outline[table][id]
+															for child in children
+																toDelete[child.table] ?= {}
+																toDelete[child.table][child.record.id] = true
+															delete @outline[table][id]
+														else
+															# TODO: make this more abstract
+															# if recordChanges.element_type && recordChanges.element_type in ['Product', 'ProductVariant']
+															# 	continue
 
-											for table,ids of toDelete
-												for id,__ of ids
-													contained = Graph.contained @outline, table, @outline[table][id]
-													for r in contained
-														delete @outline[r.table][r.record.id]
-													delete @outline[table][id]
+															fields = Graph.fields[table]
+															if fields
+																for field of fields
+																	if Graph.fields[table][field] == 'id' && (value = recordChanges[field])
+																		newId = parseInt value.substr 1
 
-									if !count
-										broadcast()
-								else
-									broadcast()
-							else
-								cb JSON.stringify
-									status:'ok'
-									updateToken:body.updateToken
-									mapping:body.mapping
-						else if body.status == 'invalidUpdateToken'
-							cb JSON.stringify
-								status:'invalidUpdateToken'
-								updateToken:body.updateToken
+																		if r = Graph.fieldRel?[table]?[field]
+																			t = r.table
+																			relTable = if _.isFunction t
+																				t @outline[table][id]
+																			else
+																				t
+
+																			if Graph.inGraph relTable
+																				# console.log 'asdf', table, field, newId, relTable, value
+																				if !@outline[relTable]?[newId]
+																					# console.log 'new branch', table, field, newId, relTable, value
+																					++count
+																					do (table, id) =>
+																						@data "#{relTable}.#{newId}", ((data) =>
+																							parse data,
+																								error: ->
+																									# TODO: Figure out what to do here...
+																									cb 'error'
+																								success: (data) ->
+																									for dataTable, dataRecords of data
+																										for dataId, dataRecord of dataRecords
+																											dataId = parseInt(dataId.substr 1)
+																											@addToOutline dataTable, dataId, dataRecord
+																											add dataTable, dataId, dataRecord
+																									if !--count
+																										broadcast()
+																						), claim:true, collaborators:false
+																				else
+																					if toDelete[relTable]?[newId]
+																						delete toDelete[relTable][newId]
+
+													for table,ids of toDelete
+														for id,__ of ids
+															contained = Graph.contained @outline, table, @outline[table][id]
+															for r in contained
+																delete @outline[r.table][r.record.id]
+															delete @outline[table][id]
+
+											if !count
+												broadcast()
+										else
+											broadcast()
+									else
+										cb JSON.stringify
+											status:'ok'
+											updateToken:body.updateToken
+											mapping:body.mapping
+								else if body.status == 'invalidUpdateToken'
+									cb JSON.stringify
+										status:'invalidUpdateToken'
+										updateToken:body.updateToken
 
 
 	addSubscriber: (clientId, object) ->
@@ -727,14 +730,13 @@ start = ->
 					updateToken:req.body.updateToken
 					changes:req.body.changes
 			}, (error, response, body) =>
-				try
-					body = parse body
-				catch e
-					console.log body
-					throw e
-				res.send JSON.stringify
-					updateToken:body.updateToken
-					mapping:body.mapping
+				parse body,
+					success: (body) ->
+						res.send JSON.stringify
+							updateToken:body.updateToken
+							mapping:body.mapping
+					error: ->
+						res.send 'error'
 		else
 			User.operate req.body.userId, (user) ->
 				user.hasPermissions req.body.clientId, 'update', parse(req.body.changes), (permission) ->
@@ -797,6 +799,7 @@ env.init ->
 			method:'post'
 			form:
 				serverId:serverId
-		}, ->
+		}, (error) ->
+			console.log 'has error', error if error
 			if ++count == env.portServers.length
 				start()
