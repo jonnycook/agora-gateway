@@ -452,88 +452,82 @@ User = (function() {
               success: function(body) {
                 var add, addChangesForSubscribers, broadcast, changesForSubscribers, child, children, contained, count, field, fields, id, ids, newId, recordChanges, relTable, t, tableChanges, toDelete, value, __, _base3, _j, _k, _len1, _len2, _name, _ref, _ref1, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8;
                 if (body.status === 'ok') {
-                  if (this.subscribers) {
+                  if (_this.subscribers) {
                     delete body.changes.products;
                     delete body.changes.product_variants;
                     changesForSubscribers = {};
-                    if (this.subscribers['*']) {
+                    if (_this.subscribers['*']) {
                       changesForSubscribers['*'] = body.changes;
                     }
-                    if (this.subscribers['/']) {
+                    if (_this.subscribers['/']) {
                       changesForSubscribers['/'] = body.changes;
                     }
-                    if (this.subscribers['@'] && ((_ref = body.changes) != null ? (_ref1 = _ref.users) != null ? _ref1["G" + this.id] : void 0 : void 0)) {
-                      id = "G" + this.id;
+                    if (_this.subscribers['@'] && ((_ref = body.changes) != null ? (_ref1 = _ref.users) != null ? _ref1["G" + _this.id] : void 0 : void 0)) {
+                      id = "G" + _this.id;
                       changes = {
                         users: {}
                       };
                       changes.users[id] = body.changes.users[id];
                       changesForSubscribers['@'] = changes;
                     }
-                    broadcast = (function(_this) {
-                      return function() {
-                        var clientIds, grouped, object, port, subscribers;
-                        for (object in changesForSubscribers) {
-                          changes = changesForSubscribers[object];
-                          subscribers = _.without(_this.subscribers[object], clientId);
-                          if (subscribers.length) {
-                            grouped = groupClientIdsByPort(subscribers);
-                            changes = JSON.stringify(body.changes);
-                            for (port in grouped) {
-                              clientIds = grouped[port];
-                              request({
-                                url: "http://" + port + "/update",
-                                method: 'post',
-                                form: {
-                                  clientIds: clientIds,
-                                  userId: _this.id,
-                                  changes: changes
-                                }
-                              });
-                            }
+                    broadcast = function() {
+                      var clientIds, grouped, object, port, subscribers;
+                      for (object in changesForSubscribers) {
+                        changes = changesForSubscribers[object];
+                        subscribers = _.without(_this.subscribers[object], clientId);
+                        if (subscribers.length) {
+                          grouped = groupClientIdsByPort(subscribers);
+                          changes = JSON.stringify(body.changes);
+                          for (port in grouped) {
+                            clientIds = grouped[port];
+                            request({
+                              url: "http://" + port + "/update",
+                              method: 'post',
+                              form: {
+                                clientIds: clientIds,
+                                userId: _this.id,
+                                changes: changes
+                              }
+                            });
                           }
                         }
-                        return cb(JSON.stringify({
-                          status: 'ok',
-                          updateToken: body.updateToken,
-                          mapping: body.mapping
-                        }));
+                      }
+                      return cb(JSON.stringify({
+                        status: 'ok',
+                        updateToken: body.updateToken,
+                        mapping: body.mapping
+                      }));
+                    };
+                    if (_this.outline) {
+                      addChangesForSubscribers = function(object, table, id, changes) {
+                        var _base3;
+                        if (_this.subscribers[object]) {
+                          if (changesForSubscribers[object] == null) {
+                            changesForSubscribers[object] = {};
+                          }
+                          if ((_base3 = changesForSubscribers[object])[table] == null) {
+                            _base3[table] = {};
+                          }
+                          if (!changesForSubscribers[object][table][id]) {
+                            return changesForSubscribers[object][table][id] = changes;
+                          } else {
+                            return _.extend(changesForSubscribers[object][table][id], changes);
+                          }
+                        }
                       };
-                    })(this);
-                    if (this.outline) {
-                      addChangesForSubscribers = (function(_this) {
-                        return function(object, table, id, changes) {
-                          var _base3;
-                          if (_this.subscribers[object]) {
-                            if (changesForSubscribers[object] == null) {
-                              changesForSubscribers[object] = {};
-                            }
-                            if ((_base3 = changesForSubscribers[object])[table] == null) {
-                              _base3[table] = {};
-                            }
-                            if (!changesForSubscribers[object][table][id]) {
-                              return changesForSubscribers[object][table][id] = changes;
-                            } else {
-                              return _.extend(changesForSubscribers[object][table][id], changes);
-                            }
-                          }
+                      add = function(table, id, changes) {
+                        var _results;
+                        r = table === 'activity' ? Graph.owner(_this.outline, table, changes) : {
+                          table: table,
+                          record: _this.outline[table][id]
                         };
-                      })(this);
-                      add = (function(_this) {
-                        return function(table, id, changes) {
-                          var _results;
-                          r = table === 'activity' ? Graph.owner(_this.outline, table, changes) : {
-                            table: table,
-                            record: _this.outline[table][id]
-                          };
-                          _results = [];
-                          while (r) {
-                            addChangesForSubscribers("" + r.table + "." + r.record.id, table, 'G' + id, changes);
-                            _results.push(r = Graph.owner(_this.outline, r.table, r.record));
-                          }
-                          return _results;
-                        };
-                      })(this);
+                        _results = [];
+                        while (r) {
+                          addChangesForSubscribers("" + r.table + "." + r.record.id, table, 'G' + id, changes);
+                          _results.push(r = Graph.owner(_this.outline, r.table, r.record));
+                        }
+                        return _results;
+                      };
                       _ref2 = body.changes;
                       for (table in _ref2) {
                         tableChanges = _ref2[table];
@@ -542,7 +536,7 @@ User = (function() {
                             recordChanges = tableChanges[id];
                             if (recordChanges !== 'deleted') {
                               id = parseInt(id.substr(1));
-                              this.addToOutline(table, id, recordChanges);
+                              _this.addToOutline(table, id, recordChanges);
                             }
                           }
                         }
@@ -563,14 +557,14 @@ User = (function() {
                       for (table in _ref4) {
                         tableChanges = _ref4[table];
                         if (Graph.inGraph(table)) {
-                          if ((_base3 = this.outline)[table] == null) {
+                          if ((_base3 = _this.outline)[table] == null) {
                             _base3[table] = {};
                           }
                           for (id in tableChanges) {
                             recordChanges = tableChanges[id];
                             id = parseInt(id.substr(1));
                             if (recordChanges === 'deleted') {
-                              children = Graph.children(this.outline, table, this.outline[table][id]);
+                              children = Graph.children(_this.outline, table, _this.outline[table][id]);
                               for (_j = 0, _len1 = children.length; _j < _len1; _j++) {
                                 child = children[_j];
                                 if (toDelete[_name = child.table] == null) {
@@ -578,7 +572,7 @@ User = (function() {
                                 }
                                 toDelete[child.table][child.record.id] = true;
                               }
-                              delete this.outline[table][id];
+                              delete _this.outline[table][id];
                             } else {
                               fields = Graph.fields[table];
                               if (fields) {
@@ -587,39 +581,37 @@ User = (function() {
                                     newId = parseInt(value.substr(1));
                                     if (r = (_ref5 = Graph.fieldRel) != null ? (_ref6 = _ref5[table]) != null ? _ref6[field] : void 0 : void 0) {
                                       t = r.table;
-                                      relTable = _.isFunction(t) ? t(this.outline[table][id]) : t;
+                                      relTable = _.isFunction(t) ? t(_this.outline[table][id]) : t;
                                       if (Graph.inGraph(relTable)) {
-                                        if (!((_ref7 = this.outline[relTable]) != null ? _ref7[newId] : void 0)) {
+                                        if (!((_ref7 = _this.outline[relTable]) != null ? _ref7[newId] : void 0)) {
                                           ++count;
-                                          (function(_this) {
-                                            return (function(table, id) {
-                                              return _this.data("" + relTable + "." + newId, (function(data) {
-                                                return parse(data, {
-                                                  error: function() {
-                                                    return cb('error');
-                                                  },
-                                                  success: function(data) {
-                                                    var dataId, dataRecord, dataRecords, dataTable;
-                                                    for (dataTable in data) {
-                                                      dataRecords = data[dataTable];
-                                                      for (dataId in dataRecords) {
-                                                        dataRecord = dataRecords[dataId];
-                                                        dataId = parseInt(dataId.substr(1));
-                                                        this.addToOutline(dataTable, dataId, dataRecord);
-                                                        add(dataTable, dataId, dataRecord);
-                                                      }
-                                                    }
-                                                    if (!--count) {
-                                                      return broadcast();
+                                          (function(table, id) {
+                                            return _this.data("" + relTable + "." + newId, (function(data) {
+                                              return parse(data, {
+                                                error: function() {
+                                                  return cb('error');
+                                                },
+                                                success: function(data) {
+                                                  var dataId, dataRecord, dataRecords, dataTable;
+                                                  for (dataTable in data) {
+                                                    dataRecords = data[dataTable];
+                                                    for (dataId in dataRecords) {
+                                                      dataRecord = dataRecords[dataId];
+                                                      dataId = parseInt(dataId.substr(1));
+                                                      _this.addToOutline(dataTable, dataId, dataRecord);
+                                                      add(dataTable, dataId, dataRecord);
                                                     }
                                                   }
-                                                });
-                                              }), {
-                                                claim: true,
-                                                collaborators: false
+                                                  if (!--count) {
+                                                    return broadcast();
+                                                  }
+                                                }
                                               });
+                                            }), {
+                                              claim: true,
+                                              collaborators: false
                                             });
-                                          })(this)(table, id);
+                                          })(table, id);
                                         } else {
                                           if ((_ref8 = toDelete[relTable]) != null ? _ref8[newId] : void 0) {
                                             delete toDelete[relTable][newId];
@@ -636,12 +628,12 @@ User = (function() {
                             ids = toDelete[table];
                             for (id in ids) {
                               __ = ids[id];
-                              contained = Graph.contained(this.outline, table, this.outline[table][id]);
+                              contained = Graph.contained(_this.outline, table, _this.outline[table][id]);
                               for (_k = 0, _len2 = contained.length; _k < _len2; _k++) {
                                 r = contained[_k];
-                                delete this.outline[r.table][r.record.id];
+                                delete _this.outline[r.table][r.record.id];
                               }
-                              delete this.outline[table][id];
+                              delete _this.outline[table][id];
                             }
                           }
                         }
@@ -1008,6 +1000,7 @@ app.get('/debug', function(req, res) {
 serverId = 1;
 
 start = function() {
+  console.log('started');
   app.post('/port/started', function(req, res) {
     var clientId, clientIds, object, objects, subscriptions, user, userId, __, _j, _len1;
     if (clientIdsByServerId[req.body.serverId]) {
@@ -1122,21 +1115,19 @@ start = function() {
           updateToken: req.body.updateToken,
           changes: req.body.changes
         }
-      }, (function(_this) {
-        return function(error, response, body) {
-          return parse(body, {
-            success: function(body) {
-              return res.send(JSON.stringify({
-                updateToken: body.updateToken,
-                mapping: body.mapping
-              }));
-            },
-            error: function() {
-              return res.send('error');
-            }
-          });
-        };
-      })(this));
+      }, function(error, response, body) {
+        return parse(body, {
+          success: function(body) {
+            return res.send(JSON.stringify({
+              updateToken: body.updateToken,
+              mapping: body.mapping
+            }));
+          },
+          error: function() {
+            return res.send('error');
+          }
+        });
+      });
     } else {
       return User.operate(req.body.userId, function(user) {
         return user.hasPermissions(req.body.clientId, 'update', parse(req.body.changes), function(permission) {

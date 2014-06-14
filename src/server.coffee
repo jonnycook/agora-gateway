@@ -275,10 +275,10 @@ class User
 					else if body == 'invalid client id'
 					else
 						parse body,
-							error: (error) ->
+							error: (error) =>
 								cb 'error'
 
-							success: (body) ->
+							success: (body) =>
 								if body.status == 'ok'
 									# console.log body.changes
 									# if body.changes && body.changes.decisions
@@ -402,10 +402,10 @@ class User
 																					do (table, id) =>
 																						@data "#{relTable}.#{newId}", ((data) =>
 																							parse data,
-																								error: ->
+																								error: =>
 																									# TODO: Figure out what to do here...
 																									cb 'error'
-																								success: (data) ->
+																								success: (data) =>
 																									for dataTable, dataRecords of data
 																										for dataId, dataRecord of dataRecords
 																											dataId = parseInt(dataId.substr 1)
@@ -646,6 +646,7 @@ app.get '/debug', (req, res) ->
 serverId = 1
 
 start = ->
+	console.log 'started'
 	app.post '/port/started', (req, res) ->
 		if clientIdsByServerId[req.body.serverId]
 			clientIds = clientIdsByServerId[req.body.serverId]
@@ -729,7 +730,7 @@ start = ->
 				form:
 					updateToken:req.body.updateToken
 					changes:req.body.changes
-			}, (error, response, body) =>
+			}, (error, response, body) ->
 				parse body,
 					success: (body) ->
 						res.send JSON.stringify
