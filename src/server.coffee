@@ -5,6 +5,12 @@ bodyParser = require 'body-parser'
 request = require 'request'
 graph = require './graph'
 require 'colors'
+require('source-map-support').install();
+
+util = require 'util'
+
+testLog = (args...) ->
+	console.log 'TEST:'.green, args...
 
 env = null
 
@@ -20,7 +26,7 @@ processLogsCol = null
 
 serverProcessId = new Date().getTime()
 
-if env.log
+if env.logErrors
 	winston = require('winston')
 	winston.handleExceptions(new winston.transports.File({ filename: "errors_#{serverProcessId}.log" }))
 
@@ -210,6 +216,11 @@ class Record
 					cb records
 
 
+logCommand = (type, params) ->
+	if env.log
+		timestamp = new Date().getTime()
+		processLogsCol.insert {timestamp:timestamp, type:type, params:JSON.stringify params}, ->
+
 clientIdsByServerId = {}
 
 clientsIdsForUserId = {}
@@ -219,16 +230,23 @@ userIdForClientId = (clientId, cb) ->
 		cb userIdsByClientId[clientId]
 	else
 		connection.query "SELECT user_id FROM clients WHERE client_id = '#{clientId}'", (error, rows, fields) ->
-			cb userIdsByClientId[clientId] = parseInt rows[0].user_id
+			userIdsByClientId[clientId] = parseInt rows[0].user_id
+			data = {}
+			data["clients.#{clientId}"] = userIdsByClientId[clientId]
+			mongoDb.collection('snapshots').update {_id:serverProcessId}, '$set':data, ->
+			cb userIdsByClientId[clientId]
 
 parse = (json, cbs=null) -> 
 	if cbs
+		obj = null
 		try
-			cbs.success JSON.parse json
+			obj = JSON.parse json
 		catch e
 			# console.log json
 			cbs.error json
 			# throw e
+		if obj
+			cbs.success obj
 	else
 		# TODO: handle errors here
 		JSON.parse json
@@ -236,8 +254,17 @@ parse = (json, cbs=null) ->
 
 class User
 	@users:{}
+
 	@user: (userId) ->
 		@users[userId] ?= new User userId
+
+	@userByClientId: (clientId, cb) ->
+		userIdForClientId clientId, (userId) =>
+			cb @user userId
+
+	@operateByClientId: (clientId, cb) ->
+		@userByClientId clientId, (user) ->
+			user.operate -> cb user
 
 	@operate: (userId, cb) ->
 		user = @user userId
@@ -247,11 +274,7 @@ class User
 
 	constructor: (id) ->
 		@id = parseInt id
-
-	logCommand: (type, params) ->
-		if env.log
-			timestamp = new Date().getTime()
-			processLogsCol.insert {timestamp:timestamp, userId:@id, type:type, params:params}, ->
+		@clientIds = {}
 
 	operate: (cb) ->
 		if @operating
@@ -259,22 +282,6 @@ class User
 			@queue.push cb
 		else
 			@operating = true
-			cb()
-
-	initialSnapshot: (cb) ->
-		if env.log
-			if !@snapshotTaken
-				console.log 'initial snapshot'
-				request {
-					method:'get'
-					url: "http://#{env.getUpdateServer()}/saveSnapshot.php?userId=#{@id}&id=#{serverProcessId}"
-				}, (error, response, body) =>
-					console.log 'snaphot taken', error, body
-					cb()
-					@snapshotTaken = true
-			else
-				cb()
-		else
 			cb()
 
 	done: ->
@@ -292,14 +299,18 @@ class User
 			if _.isObject changes
 				changes = JSON.stringify changes
 			for port, clientIds of grouped
-				request
-					url: "http://#{port}/update",
-					method: 'post',
-					form:
-						clientIds:clientIds
-						userId:@id
-						changes:changes
+				if !env.test
+					request
+						url: "http://#{port}/update",
+						method: 'post',
+						form:
+							clientIds:clientIds
+							userId:@id
+							changes:changes
 
+	deleteFromOutline: (table, id) ->
+		testLog 'deleteFromOutline', table, id
+		delete @outline[table][id]
 
 	update: (clientId, updateToken, changes, cb) ->
 		@initOutline =>
@@ -311,6 +322,7 @@ class User
 						updateToken:updateToken
 						changes:changes
 				}, (error, response, body) =>
+					# console.log 'body', body
 					if body == 'invalid update token' 
 						cb 'invalid client id'
 
@@ -319,10 +331,11 @@ class User
 					else
 						parse body,
 							error: (error) =>
-								console.log error
+								console.log 'error', error
 								cb 'error'
 
 							success: (body) =>
+								# testLog @outline
 								if body.status == 'ok'
 									# console.log body.changes
 									# if body.changes && body.changes.decisions
@@ -338,7 +351,7 @@ class User
 									# 						object:object
 									# 				}
 
-									if @subscribers
+									if @subscribers && body.changes
 										delete body.changes.products
 										delete body.changes.product_variants
 
@@ -356,19 +369,34 @@ class User
 											changesForSubscribers['@'] = changes
 
 										broadcast = =>
-											for object,changes of changesForSubscribers
-												subscribers = _.without @subscribers[object], clientId
-												if subscribers.length
-													grouped = groupClientIdsByPort subscribers
-													changes = JSON.stringify body.changes
-													for port, clientIds of grouped
-														request
-															url: "http://#{port}/update",
-															method: 'post',
-															form:
-																clientIds:clientIds
-																userId:@id
-																changes:changes
+											if env.test
+												# testLog 'broadcast', util.inspect changesForSubscribers, true, 10
+											else
+												for object,changes of changesForSubscribers
+													subscribers = _.without @subscribers[object], clientId
+													if subscribers.length
+														grouped = groupClientIdsByPort subscribers
+														changes = JSON.stringify body.changes
+														for port, clientIds of grouped
+															# if !env.test
+																request
+																	url: "http://#{port}/update",
+																	method: 'post',
+																	form:
+																		clientIds:clientIds
+																		userId:@id
+																		changes:changes
+															# else
+															# 	changes = JSON.parse changes
+															# 	if changes.activity
+															# 		delete changes.activity
+															# 	changes = JSON.stringify changes
+
+															# 	testLog 'broadcast',
+															# 		clientIds:clientIds
+															# 		userId:@id
+															# 		changes:changes
+
 
 											cb JSON.stringify
 												status:'ok'
@@ -386,6 +414,13 @@ class User
 														_.extend changesForSubscribers[object][table][id], changes
 
 											add = (table, id, changes) =>
+												# testLog 'add', table, id, changes
+
+												if table != 'activity' && !@outline[table]?[id]
+													console.log 'missing %s.%s', table, id
+													#TODO: Probably should handle this better...
+													return
+
 												r = if table == 'activity'
 													Graph.owner @outline, table, changes
 												else
@@ -409,22 +444,28 @@ class User
 
 											count = 0
 											toDelete = {}
-											for table, tableChanges of body.changes										
+											for table, tableChanges of body.changes
+												continue if table == 'activity'
 												if Graph.inGraph table
 													@outline[table] ?= {}
 													for id,recordChanges of tableChanges
 														id = parseInt id.substr 1
+
+														if !@outline[table]?[id]
+															console.log 'missing %s.%s', table, id
+															continue
+
 														if recordChanges == 'deleted'
 															children = Graph.children @outline, table, @outline[table][id]
 															for child in children
 																toDelete[child.table] ?= {}
 																toDelete[child.table][child.record.id] = true
-															delete @outline[table][id]
-														else
-															# TODO: make this more abstract
-															# if recordChanges.element_type && recordChanges.element_type in ['Product', 'ProductVariant']
-															# 	continue
 
+															# toDelete[table] ?= {}
+															# toDelete[table][id] = true
+															@deleteFromOutline table, id
+
+														else
 															fields = Graph.fields[table]
 															if fields
 																for field of fields
@@ -451,6 +492,8 @@ class User
 																									console.log error
 																									cb 'error'
 																								success: (data) =>
+																									_.merge changesForSubscribers['*'], data
+																									_.merge changesForSubscribers['/'], data
 																									for dataTable, dataRecords of data
 																										for dataId, dataRecord of dataRecords
 																											dataId = parseInt(dataId.substr 1)
@@ -462,13 +505,12 @@ class User
 																				else
 																					if toDelete[relTable]?[newId]
 																						delete toDelete[relTable][newId]
-
-													for table,ids of toDelete
-														for id,__ of ids
-															contained = Graph.contained @outline, table, @outline[table][id]
-															for r in contained
-																delete @outline[r.table][r.record.id]
-															delete @outline[table][id]
+											for table,ids of toDelete
+												for id,__ of ids
+													contained = Graph.contained @outline, table, @outline[table][id]
+													for r in contained
+														@deleteFromOutline r.table, r.record.id
+													@deleteFromOutline table, id
 
 											if !count
 												broadcast()
@@ -483,7 +525,6 @@ class User
 									cb JSON.stringify
 										status:'invalidUpdateToken'
 										updateToken:body.updateToken
-
 
 	addSubscriber: (clientId, object) ->
 		if !(object in ['*', '/', '@'])
@@ -577,14 +618,21 @@ class User
 					else
 						if object == '@'
 							connection.query "SELECT 1 FROM shared WHERE user_id = #{userId} && with_user_id = #{@id} || user_id = #{@id} && with_user_id = #{userId}", (err, rows) =>
-								cb rows.length
+								if rows.length
+									cb true
+								else if args[1]
+									key = args[1]
+									[uId, object] = key.split ' '
+									connection.query "SELECT COUNT(*) c FROM shared WHERE user_id = #{uId} && object = '#{object}' && with_user_id IN (#{userId}, #{@id})", (err, rows) =>
+										cb rows[0].c == 2
+								else
+									cb false
 						else
 							@initShared =>
 								if @shared[object] && (userId in @shared[object])
 									cb true
 								else
 									cb false
-
 	initShared: (cb) ->
 		if !@shared
 			@shared = {}
@@ -605,6 +653,7 @@ class User
 			cb body
 
 	addToOutline: (table, id, inValues) ->
+		testLog @id, 'addToOutline', table, id, inValues
 		# TODO: make more general
 		return if table == 'activity'
 		values = {}
@@ -624,12 +673,13 @@ class User
 			@outline[table][id] = values
 		else
 			for field,value of values
-				if Graph.fields[table][field] == 'id'
+				if Graph.fields[table][field] == 'id' && value != @outline[table][id][field]
 					contained = Graph.contained @outline, table, @outline[table][id]
 					for r in contained
-						delete @outline[r.table][r.record.id]
+						@deleteFromOutline r.table, r.record.id
+						# delete @outline[r.table][r.record.id]
 					break
-			_.extend @outline[table][id][field], values
+			_.extend @outline[table][id], values
 
 	addRecord: (record) ->
 		@addToOutline record.table, record.fields.id, record.fields
@@ -690,6 +740,16 @@ app.get '/debug', (req, res) ->
 
 serverId = 1
 
+resolveUserId = (user, params, cb) ->
+	if params.clientId == 'Carl Sagan'
+		cb params.userId
+	else
+		userIdForClientId params.clientId, (userId) ->
+			if userId == parseInt params.userId
+				cb userId
+			else
+				cb null
+
 commands = 
 	init: (user, params, sendResponse) ->
 		clientIdsByServerId[params.serverId] ?= {}
@@ -701,6 +761,36 @@ commands =
 					sendResponse data
 			else
 				sendResponse 'not allowed'
+
+	'share/create': (user, params, sendResponse) ->
+		resolveUserId user, params, (userId) ->
+			if userId
+				request
+					url: "http://#{env.getUpdateServer()}/shared/create.php?userId=#{userId}",
+					method: 'post'
+					form: params,
+					(err, response, body) ->
+						console.log body
+		sendResponse()
+
+	'share/delete': (user, params, sendResponse) ->
+		resolveUserId user, params, (userId) ->
+			console.log 'hahah', userId
+			if userId
+				request
+					url: "http://#{env.getUpdateServer()}/shared/delete.php?userId=#{userId}",
+					method: 'post'
+					form: params
+		sendResponse()
+
+	'share/update': (user, params, sendResponse) ->
+		resolveUserId user, params, (userId) ->
+			if userId
+				request
+					url: "http://#{env.getUpdateServer()}/shared/update.php?userId=#{userId}",
+					method: 'post'
+					form: params
+		sendResponse()
 
 	shared: (user, params, sendResponse) ->
 		record = params.record
@@ -748,8 +838,9 @@ commands =
 		user.sendUpdate params.changes, params.object
 		sendResponse 'ok'
 
+
+
 	update: (user, params, sendResponse) ->
-		user.initialSnapshot ->
 			user.hasPermissions params.clientId, 'update', parse(params.changes), (permission) ->
 				if permission
 					user.update params.clientId, params.updateToken, params.changes, (response) ->
@@ -762,7 +853,7 @@ commands =
 		clientIdsByServerId[params.serverId] ?= {}
 		clientIdsByServerId[params.serverId][params.clientId] = true
 
-		user.hasPermissions params.clientId, 'subscribe', params.object, (permission) ->
+		user.hasPermissions params.clientId, 'subscribe', params.object, params.key, (permission) ->
 			if permission
 				userIdForClientId params.clientId, (userId) ->
 					clientsIdsForUserId[userId] ?= []
@@ -800,9 +891,9 @@ commands =
 
 executeCommand = (type, params, sendResponse) ->
 	console.log 'command', type, params
+	logCommand type, params
 	if params.userId && commands[type].length == 3
 		User.operate params.userId, (user) ->
-			user.logCommand type, params
 			commands[type] user, params, (response) ->
 				sendResponse response
 				user.done()
@@ -833,26 +924,22 @@ start = ->
 
 if process.argv[2]
 	snapshot = process.argv[2]
-	userId = process.argv[3]
 	start()
-	console.log snapshot
-
-
 
 	request {
-		url: "http://#{env.getUpdateServer()}/restoreSnapshot.php?id=#{snapshot}&userId=#{userId}",
+		url: "http://#{env.getUpdateServer()}/restoreSnapshot.php?id=#{snapshot}",
 		method: 'get'
 	}, ->
 		MongoClient.connect env.mongoDb, (err, db) ->
 			mongoDb = db
 			processLogsCol = mongoDb.collection "processLogs_#{snapshot}"
-			cursor = processLogsCol.find userId:parseInt userId
+			cursor = processLogsCol.find()
 			cursor.toArray (err, docs) ->
 				current = 0
 				next = ->
 					if current < docs.length
 						doc = docs[current++]
-						params = doc.params
+						params = JSON.parse doc.params
 						type = doc.type
 						console.log '>', type, params
 
@@ -870,20 +957,24 @@ if process.argv[2]
 						console.log 'done'
 				next()
 else
-	env.init ->
-		MongoClient.connect env.mongoDb, (err, db) ->
-			mongoDb = db
-			processLogsCol = mongoDb.collection "processLogs_#{serverProcessId}"
+	request {
+		method:'get'
+		url: "http://#{env.getUpdateServer()}/saveSnapshot.php?id=#{serverProcessId}"
+	}, (error, response, body) =>
+		env.init ->
+			MongoClient.connect env.mongoDb, (err, db) ->
+				mongoDb = db
+				processLogsCol = mongoDb.collection "processLogs_#{serverProcessId}"
 
-			count = 0
-			for portServer in env.portServers
-				request {
-					url: "http://#{portServer}/gateway/started",
-					method:'post'
-					form:
-						serverId:serverId
-				}, (error) ->
-					console.log 'has error', error if error
-					if ++count == env.portServers.length
-						start()
+				count = 0
+				for portServer in env.portServers
+					request {
+						url: "http://#{portServer}/gateway/started",
+						method:'post'
+						form:
+							serverId:serverId
+					}, (error) ->
+						console.log 'has error', error if error
+						if ++count == env.portServers.length
+							start()
 
