@@ -35,6 +35,20 @@ graph = {
       filter: function(table, record, otherRecord) {
         return map[otherRecord.element_type] === table;
       }
+    },
+    session_elements: {
+      field: 'element_id',
+      owner: true,
+      filter: function(table, record, otherRecord) {
+        return map[otherRecord.element_type] === table;
+      }
+    },
+    belt_elements: {
+      field: 'element_id',
+      owner: true,
+      filter: function(table, record, otherRecord) {
+        return map[otherRecord.element_type] === table;
+      }
     }
   },
   decisions: {
@@ -64,6 +78,20 @@ graph = {
       }
     },
     list_elements: {
+      field: 'element_id',
+      owner: true,
+      filter: function(table, record, otherRecord) {
+        return map[otherRecord.element_type] === table;
+      }
+    },
+    session_elements: {
+      field: 'element_id',
+      owner: true,
+      filter: function(table, record, otherRecord) {
+        return map[otherRecord.element_type] === table;
+      }
+    },
+    belt_elements: {
       field: 'element_id',
       owner: true,
       filter: function(table, record, otherRecord) {
@@ -128,6 +156,77 @@ graph = {
         return map[otherRecord.element_type] === table;
       },
       owner: true
+    },
+    session_elements: {
+      field: 'element_id',
+      owner: true,
+      filter: function(table, record, otherRecord) {
+        return map[otherRecord.element_type] === table;
+      }
+    },
+    belt_elements: {
+      field: 'element_id',
+      owner: true,
+      filter: function(table, record, otherRecord) {
+        return map[otherRecord.element_type] === table;
+      }
+    }
+  },
+  sessions: {
+    session_elements: {
+      field: 'session_id',
+      owns: true
+    },
+    root_elements: {
+      field: 'element_id',
+      owner: true,
+      filter: function(table, record, otherRecord) {
+        return map[otherRecord.element_type] === table;
+      }
+    },
+    belt_elements: {
+      field: 'element_id',
+      owner: true,
+      filter: function(table, record, otherRecord) {
+        return map[otherRecord.element_type] === table;
+      }
+    }
+  },
+  session_elements: {
+    session_id: {
+      owner: true,
+      table: 'sessions'
+    },
+    element_id: {
+      table: function(record) {
+        return map[record.element_type];
+      },
+      owns: function(record) {
+        var _ref;
+        return !((_ref = record.element_type) === 'Product' || _ref === 'ProductVariant');
+      }
+    }
+  },
+  belts: {
+    root: true,
+    belt_elements: {
+      field: 'belt_id',
+      owns: true
+    }
+  },
+  belt_elements: {
+    belt_id: {
+      owner: true,
+      table: 'belts'
+    },
+    element_id: {
+      table: function(record) {
+        return map[record.element_type];
+      },
+      owns: function(record) {
+        var _ref;
+        return !((_ref = record.element_type) === 'Product' || _ref === 'ProductVariant');
+      }
     }
   },
   bundle_elements: {

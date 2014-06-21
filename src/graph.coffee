@@ -36,6 +36,17 @@ graph =
 			owner:true
 			filter: (table, record, otherRecord) -> map[otherRecord.element_type] == table
 
+		session_elements:
+			field: 'element_id'
+			owner:true
+			filter: (table, record, otherRecord) -> map[otherRecord.element_type] == table
+
+		belt_elements:
+			field: 'element_id'
+			owner:true
+			filter: (table, record, otherRecord) -> map[otherRecord.element_type] == table
+
+
 	decisions:
 		list_id:
 			table:'lists'
@@ -57,6 +68,16 @@ graph =
 			filter: (table, record, otherRecord) -> map[otherRecord.element_type] == table
 
 		list_elements:
+			field: 'element_id'
+			owner:true
+			filter: (table, record, otherRecord) -> map[otherRecord.element_type] == table
+
+		session_elements:
+			field: 'element_id'
+			owner:true
+			filter: (table, record, otherRecord) -> map[otherRecord.element_type] == table
+
+		belt_elements:
 			field: 'element_id'
 			owner:true
 			filter: (table, record, otherRecord) -> map[otherRecord.element_type] == table
@@ -107,6 +128,55 @@ graph =
 			filter: (table, record, otherRecord) -> map[otherRecord.element_type] == table
 
 			owner:true
+
+		session_elements:
+			field: 'element_id'
+			owner:true
+			filter: (table, record, otherRecord) -> map[otherRecord.element_type] == table
+
+		belt_elements:
+			field: 'element_id'
+			owner:true
+			filter: (table, record, otherRecord) -> map[otherRecord.element_type] == table
+
+
+	sessions:
+		session_elements:
+			field: 'session_id'
+			owns:true
+
+		root_elements:
+			field: 'element_id'
+			owner:true
+			filter: (table, record, otherRecord) -> map[otherRecord.element_type] == table
+
+		belt_elements:
+			field: 'element_id'
+			owner:true
+			filter: (table, record, otherRecord) -> map[otherRecord.element_type] == table
+
+
+	session_elements:
+		session_id:
+			owner:true
+			table: 'sessions'
+		element_id:
+			table: (record) -> map[record.element_type]
+			owns: (record) -> !(record.element_type in ['Product', 'ProductVariant'])
+
+	belts:
+		root:true
+		belt_elements:
+			field: 'belt_id'
+			owns:true
+
+	belt_elements:
+		belt_id:
+			owner:true
+			table: 'belts'
+		element_id:
+			table: (record) -> map[record.element_type]
+			owns: (record) -> !(record.element_type in ['Product', 'ProductVariant'])
 
 	bundle_elements:
 		bundle_id:

@@ -400,7 +400,6 @@ module.exports = function(env, userIdForClientId, connection) {
                   form: {
                     clientIds: clientIds,
                     userId: this.user.id,
-                    object: object,
                     changes: changes
                   }
                 }));
@@ -898,6 +897,7 @@ module.exports = function(env, userIdForClientId, connection) {
                               };
                               permitted = false;
                               while (r) {
+                                console.log(r);
                                 object = "" + r.table + "." + r.record.id;
                                 if (_this.shared[object] && (__indexOf.call(_this.shared[object], userId) >= 0)) {
                                   permitted = true;
@@ -1006,7 +1006,7 @@ module.exports = function(env, userIdForClientId, connection) {
       if (!this.outline && (this.needsOutline || force)) {
         this.outline = {};
         delete this.needsOutline;
-        return connection.query("SELECT * FROM m_root_elements WHERE user_id = " + this.id, (function(_this) {
+        return connection.query("SELECT * FROM m_belts WHERE user_id = " + this.id, (function(_this) {
           return function(err, rows, fields) {
             var count, record, row, _j, _len1, _results;
             if (rows.length) {
@@ -1014,7 +1014,7 @@ module.exports = function(env, userIdForClientId, connection) {
               _results = [];
               for (_j = 0, _len1 = rows.length; _j < _len1; _j++) {
                 row = rows[_j];
-                record = new Record('root_elements', row);
+                record = new Record('belts', row);
                 _this.addToOutline(record.table, record.fields.id, record.fields);
                 _results.push(record.contained(function(records) {
                   var _k, _len2;
@@ -1024,6 +1024,7 @@ module.exports = function(env, userIdForClientId, connection) {
                   }
                   --count;
                   if (!count) {
+                    console.log(_this.outline);
                     return cb();
                   }
                 }));

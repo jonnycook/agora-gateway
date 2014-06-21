@@ -137,8 +137,6 @@ commands = {
           url: "http://" + (env.getUpdateServer()) + "/shared/create.php?userId=" + userId,
           method: 'post',
           form: params
-        }, function(err, response, body) {
-          return console.log(body);
         });
       }
     });
@@ -146,7 +144,6 @@ commands = {
   },
   'share/delete': function(user, params, sendResponse) {
     resolveUserId(user, params, function(userId) {
-      console.log('hahah', userId);
       if (userId) {
         return request({
           url: "http://" + (env.getUpdateServer()) + "/shared/delete.php?userId=" + userId,

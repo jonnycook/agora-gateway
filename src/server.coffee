@@ -95,13 +95,13 @@ commands =
 					url: "http://#{env.getUpdateServer()}/shared/create.php?userId=#{userId}",
 					method: 'post'
 					form: params,
-					(err, response, body) ->
-						console.log body
+					# (err, response, body) ->
+						# console.log body
 		sendResponse()
 
 	'share/delete': (user, params, sendResponse) ->
 		resolveUserId user, params, (userId) ->
-			console.log 'hahah', userId
+			# console.log 'hahah', userId
 			if userId
 				request
 					url: "http://#{env.getUpdateServer()}/shared/delete.php?userId=#{userId}",

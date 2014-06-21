@@ -240,7 +240,7 @@ module.exports =
 									form:
 										clientIds:clientIds
 										userId:@user.id
-										object:object
+										# object:object
 										changes:changes
 
 		class UpdateOperation
@@ -567,6 +567,7 @@ module.exports =
 															r = table:table, record:@outline[table][id]
 															permitted = false
 															while r
+																console.log r
 																object = "#{r.table}.#{r.record.id}"
 																if @shared[object] && (userId in @shared[object])
 																	permitted = true
@@ -630,16 +631,17 @@ module.exports =
 				if !@outline && (@needsOutline || force)
 					@outline = {}
 					delete @needsOutline
-					connection.query "SELECT * FROM m_root_elements WHERE user_id = #{@id}", (err, rows, fields) =>
+					connection.query "SELECT * FROM m_belts WHERE user_id = #{@id}", (err, rows, fields) =>
 						if rows.length
 							count = rows.length
 							for row in rows
-								record = new Record 'root_elements', row
+								record = new Record 'belts', row
 								@addToOutline record.table, record.fields.id, record.fields
 								record.contained (records) =>
 									@addToOutline record.table, record.fields.id, record.fields for record in records
 									-- count
 									if !count
+										console.log @outline
 										cb()
 						else
 							cb()
