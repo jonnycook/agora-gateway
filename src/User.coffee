@@ -567,7 +567,6 @@ module.exports =
 															r = table:table, record:@outline[table][id]
 															permitted = false
 															while r
-																console.log r
 																object = "#{r.table}.#{r.record.id}"
 																if @shared[object] && (userId in @shared[object])
 																	permitted = true
@@ -641,7 +640,6 @@ module.exports =
 									@addToOutline record.table, record.fields.id, record.fields for record in records
 									-- count
 									if !count
-										console.log @outline
 										cb()
 						else
 							cb()

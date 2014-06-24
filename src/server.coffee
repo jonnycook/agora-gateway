@@ -95,8 +95,8 @@ commands =
 					url: "http://#{env.getUpdateServer()}/shared/create.php?userId=#{userId}",
 					method: 'post'
 					form: params,
-					# (err, response, body) ->
-						# console.log body
+					(err, response, body) ->
+						console.log body
 		sendResponse()
 
 	'share/delete': (user, params, sendResponse) ->
@@ -161,7 +161,8 @@ commands =
 
 	collaborators: (user, params, sendResponse) ->
 		user.sendUpdate params.changes, '*'
-		user.sendUpdate params.changes, params.object
+		if params.object
+			user.sendUpdate params.changes, params.object
 		sendResponse 'ok'
 
 	update: (user, params, sendResponse) ->

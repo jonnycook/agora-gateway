@@ -137,6 +137,8 @@ commands = {
           url: "http://" + (env.getUpdateServer()) + "/shared/create.php?userId=" + userId,
           method: 'post',
           form: params
+        }, function(err, response, body) {
+          return console.log(body);
         });
       }
     });
@@ -221,7 +223,9 @@ commands = {
   },
   collaborators: function(user, params, sendResponse) {
     user.sendUpdate(params.changes, '*');
-    user.sendUpdate(params.changes, params.object);
+    if (params.object) {
+      user.sendUpdate(params.changes, params.object);
+    }
     return sendResponse('ok');
   },
   update: function(user, params, sendResponse) {

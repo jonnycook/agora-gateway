@@ -897,7 +897,6 @@ module.exports = function(env, userIdForClientId, connection) {
                               };
                               permitted = false;
                               while (r) {
-                                console.log(r);
                                 object = "" + r.table + "." + r.record.id;
                                 if (_this.shared[object] && (__indexOf.call(_this.shared[object], userId) >= 0)) {
                                   permitted = true;
@@ -1024,7 +1023,6 @@ module.exports = function(env, userIdForClientId, connection) {
                   }
                   --count;
                   if (!count) {
-                    console.log(_this.outline);
                     return cb();
                   }
                 }));
