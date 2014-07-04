@@ -32,7 +32,7 @@ connection = mysql.createConnection env.db
 connection.connect()
 
 app = express()
-app.use(bodyParser());
+app.use bodyParser limit:'50mb'
 app.listen env.httpPort
 
 userIdsByClientId = {}
@@ -64,6 +64,12 @@ app.get '/debug', (req, res) ->
 	console.log User.clientSubscriptions
 	console.log '=clientIdsByServerId='
 	console.log clientIdsByServerId
+	res.send ''
+
+app.get '/sync', (req, res) ->
+	userId = req.query.userId
+	user = User.user userId
+	user.syncClients()
 	res.send ''
 
 resolveUserId = (user, params, cb) ->
@@ -166,12 +172,12 @@ commands =
 		sendResponse 'ok'
 
 	update: (user, params, sendResponse) ->
-			user.hasPermissions params.clientId, 'update', parse(params.changes), (permission) ->
-				if permission
-					user.update params.clientId, params.updateToken, params.changes, (response) ->
-						sendResponse response
-				else
-					sendResponse 'not allowed'
+		user.hasPermissions params.clientId, 'update', parse(params.changes), (permission) ->
+			if permission
+				user.update params.clientId, params.updateToken, params.changes, (response) ->
+					sendResponse response
+			else
+				sendResponse 'not allowed'
 
 	subscribe: (user, params, sendResponse) ->
 		clientIdsByServerId[params.serverId] ?= {}
@@ -250,39 +256,42 @@ start = ->
 
 
 if process.argv[2]
-	snapshot = process.argv[2]
-	start()
+	if process.argv[2] == 'tests'
 
-	request {
-		url: "http://#{env.getUpdateServer()}/restoreSnapshot.php?id=#{snapshot}",
-		method: 'get'
-	}, ->
-		MongoClient.connect env.mongoDb, (err, db) ->
-			mongoDb = db
-			processLogsCol = mongoDb.collection "processLogs_#{snapshot}"
-			cursor = processLogsCol.find()
-			cursor.toArray (err, docs) ->
-				current = 0
-				next = ->
-					if current < docs.length
-						doc = docs[current++]
-						params = JSON.parse doc.params
-						type = doc.type
-						console.log '>', type, params
+	else
+		snapshot = process.argv[2]
+		start()
 
-						if params.userId && commands[type].length == 3
-							User.operate params.userId, (user) ->
-								commands[type] user, params, (response) ->
+		request {
+			url: "http://#{env.getUpdateServer()}/restoreSnapshot.php?id=#{snapshot}",
+			method: 'get'
+		}, ->
+			MongoClient.connect env.mongoDb, (err, db) ->
+				mongoDb = db
+				processLogsCol = mongoDb.collection "processLogs_#{snapshot}"
+				cursor = processLogsCol.find()
+				cursor.toArray (err, docs) ->
+					current = 0
+					next = ->
+						if current < docs.length
+							doc = docs[current++]
+							params = JSON.parse doc.params
+							type = doc.type
+							console.log '>', type, params
+
+							if params.userId && commands[type].length == 3
+								User.operate params.userId, (user) ->
+									commands[type] user, params, (response) ->
+										console.log '< %s'.blue, response
+										user.done()
+										next()
+							else
+								commands[type] params, (response) ->
 									console.log '< %s'.blue, response
-									user.done()
 									next()
 						else
-							commands[type] params, (response) ->
-								console.log '< %s'.blue, response
-								next()
-					else
-						console.log 'done'
-				next()
+							console.log 'done'
+					next()
 else
 	request {
 		method:'get'

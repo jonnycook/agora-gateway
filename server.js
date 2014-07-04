@@ -53,7 +53,9 @@ connection.connect();
 
 app = express();
 
-app.use(bodyParser());
+app.use(bodyParser({
+  limit: '50mb'
+}));
 
 app.listen(env.httpPort);
 
@@ -95,6 +97,14 @@ app.get('/debug', function(req, res) {
   console.log(User.clientSubscriptions);
   console.log('=clientIdsByServerId=');
   console.log(clientIdsByServerId);
+  return res.send('');
+});
+
+app.get('/sync', function(req, res) {
+  var user, userId;
+  userId = req.query.userId;
+  user = User.user(userId);
+  user.syncClients();
   return res.send('');
 });
 
@@ -360,49 +370,53 @@ start = function() {
 };
 
 if (process.argv[2]) {
-  snapshot = process.argv[2];
-  start();
-  request({
-    url: "http://" + (env.getUpdateServer()) + "/restoreSnapshot.php?id=" + snapshot,
-    method: 'get'
-  }, function() {
-    return MongoClient.connect(env.mongoDb, function(err, db) {
-      var cursor;
-      mongoDb = db;
-      processLogsCol = mongoDb.collection("processLogs_" + snapshot);
-      cursor = processLogsCol.find();
-      return cursor.toArray(function(err, docs) {
-        var current, next;
-        current = 0;
-        next = function() {
-          var doc, params, type;
-          if (current < docs.length) {
-            doc = docs[current++];
-            params = JSON.parse(doc.params);
-            type = doc.type;
-            console.log('>', type, params);
-            if (params.userId && commands[type].length === 3) {
-              return User.operate(params.userId, function(user) {
-                return commands[type](user, params, function(response) {
+  if (process.argv[2] === 'tests') {
+
+  } else {
+    snapshot = process.argv[2];
+    start();
+    request({
+      url: "http://" + (env.getUpdateServer()) + "/restoreSnapshot.php?id=" + snapshot,
+      method: 'get'
+    }, function() {
+      return MongoClient.connect(env.mongoDb, function(err, db) {
+        var cursor;
+        mongoDb = db;
+        processLogsCol = mongoDb.collection("processLogs_" + snapshot);
+        cursor = processLogsCol.find();
+        return cursor.toArray(function(err, docs) {
+          var current, next;
+          current = 0;
+          next = function() {
+            var doc, params, type;
+            if (current < docs.length) {
+              doc = docs[current++];
+              params = JSON.parse(doc.params);
+              type = doc.type;
+              console.log('>', type, params);
+              if (params.userId && commands[type].length === 3) {
+                return User.operate(params.userId, function(user) {
+                  return commands[type](user, params, function(response) {
+                    console.log('< %s'.blue, response);
+                    user.done();
+                    return next();
+                  });
+                });
+              } else {
+                return commands[type](params, function(response) {
                   console.log('< %s'.blue, response);
-                  user.done();
                   return next();
                 });
-              });
+              }
             } else {
-              return commands[type](params, function(response) {
-                console.log('< %s'.blue, response);
-                return next();
-              });
+              return console.log('done');
             }
-          } else {
-            return console.log('done');
-          }
-        };
-        return next();
+          };
+          return next();
+        });
       });
     });
-  });
+  }
 } else {
   request({
     method: 'get',
@@ -440,5 +454,3 @@ if (process.argv[2]) {
     };
   })(this));
 }
-
-//# sourceMappingURL=server.map

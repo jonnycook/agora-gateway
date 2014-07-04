@@ -702,6 +702,41 @@ module.exports = function(env, userIdForClientId, connection) {
       }
     };
 
+    User.prototype.syncClients = function() {
+      var object, subscribers, _ref, _results;
+      if (this.subscribers) {
+        _ref = this.subscribers;
+        _results = [];
+        for (object in _ref) {
+          subscribers = _ref[object];
+          _results.push((function(_this) {
+            return function(object, subscribers) {
+              return _this.data(object, function(data) {
+                var clientIds, grouped, port, _results1;
+                grouped = groupClientIdsByPort(subscribers);
+                _results1 = [];
+                for (port in grouped) {
+                  clientIds = grouped[port];
+                  _results1.push(request({
+                    url: "http://" + port + "/sync",
+                    method: 'post',
+                    form: {
+                      clientIds: clientIds,
+                      userId: _this.id,
+                      object: object,
+                      data: data
+                    }
+                  }));
+                }
+                return _results1;
+              });
+            };
+          })(this)(object, subscribers));
+        }
+        return _results;
+      }
+    };
+
     User.prototype.sendUpdate = function(changes, object) {
       var clientIds, grouped, port, subscribers, _ref, _results;
       subscribers = (_ref = this.subscribers) != null ? _ref[object] : void 0;
@@ -1042,5 +1077,3 @@ module.exports = function(env, userIdForClientId, connection) {
 
   })();
 };
-
-//# sourceMappingURL=User.map

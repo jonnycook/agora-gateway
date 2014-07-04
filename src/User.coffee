@@ -444,6 +444,22 @@ module.exports =
 						delete @queue
 					func()
 
+			syncClients: ->
+				if @subscribers
+					for object, subscribers of @subscribers
+						do (object, subscribers) =>
+							@data object, (data) =>
+								grouped = groupClientIdsByPort subscribers
+								for port, clientIds of grouped
+									request
+										url: "http://#{port}/sync",
+										method: 'post',
+										form:
+											clientIds:clientIds
+											userId:@id
+											object:object
+											data:data
+
 			sendUpdate: (changes, object) ->
 				subscribers = @subscribers?[object]
 				if subscribers
