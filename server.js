@@ -16,9 +16,11 @@ if (process.argv[2]) {
 
 if (env.logErrors) {
   winston = require('winston');
-  winston.handleExceptions(new winston.transports.File({
-    filename: "errors_" + serverProcessId + ".log"
-  }));
+  winston.add(winston.transports.File, {
+    filename: "errors_" + serverProcessId + ".log",
+    json: false,
+    handleExceptions: true
+  });
 }
 
 mysql = require('mysql');
@@ -454,3 +456,5 @@ if (process.argv[2]) {
     };
   })(this));
 }
+
+//# sourceMappingURL=server.map
