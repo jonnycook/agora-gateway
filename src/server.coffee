@@ -1,16 +1,21 @@
 serverProcessId = new Date().getTime()
 serverId = 1
 
+domain = require 'domain'
+
+# domain.create().on('error', -> console.log 'poop').run -> throw new Error()
+# process.exit()
+
+
 env = null
 if process.argv[2]
 	env = require './env.test'
 else
 	env = require './env'
 
-if env.logErrors
-	winston = require('winston')
-	winston.add winston.transports.File, filename: "errors_#{serverProcessId}.log", json:false, handleExceptions:true
-
+# if env.logErrors
+# 	winston = require('winston')
+# 	winston.add winston.transports.File, filename: "errors_#{serverProcessId}.log", json:false, handleExceptions:true
 
 mysql = require 'mysql'
 _ = require 'lodash'
@@ -25,7 +30,6 @@ mongoDb = null
 processLogsCol = null
 clientIdsByServerId = {}
 clientsIdsForUserId = {}
-
 
 {parse:parse} = require './utils'
 
@@ -220,41 +224,62 @@ commands =
 		}, (err, response, body) ->
 			sendResponse body
 
+shuttingDown = false
 executeCommand = (type, params, sendResponse) ->
 	console.log 'command', type, params
-	commandResponse = logId = null
+	commandError = commandResponse = logId = null
+	d = domain.create()
+	
 	if env.log
 		timestamp = new Date().getTime()
 		processLogsCol.insert {timestamp:timestamp, type:type, params:params}, (err, records) ->
 			if !err
 				logId = records[0]._id
 				if commandResponse
-					processLogsCol.update {_id:logId}, response:commandResponse, ->
+					processLogsCol.update {_id:logId}, $set:response:commandResponse, ->
+				else if commandError
+					processLogsCol.update {_id:logId}, $set:error:message:commandError.message, stack:commandError.stack, -> process.exit()
 			else
 				console.log 'error inserting log'
+				if commandError
+					process.exit()
 
-
-	if params.userId && commands[type].length == 3
-		User.operate params.userId, (user) ->
-			commands[type] user, params, (response) ->
-				if logId
-					processLogsCol.update {_id:logId}, $set:response:response, ->
-				else if env.log
-					commandResponse = response
-
-				sendResponse response
-				user.done()
+		d.on 'error', (err) ->
+			app.close()
+			console.log 'error', err.stack
+			if logId
+				processLogsCol.update {_id:logId}, $set:error:message:err.message, stack:err.stack, -> process.exit()
+			else
+				commandError = err
 	else
-		commands[type] params, sendResponse
+		d.on 'error', (err) ->
+			app.close()
+			timestamp = new Date().getTime()
+			console.log 'error', err.stack
+			mongoDb.collection('errors').insert process:serverProcessId, request:{timestamp:timestamp, type:type, params:params}, error:{error:message:err.message, stack:err.stack}, ->
+				process.exit()
+
+	d.run ->
+		if params.userId && commands[type].length == 3
+			User.operate params.userId, (user) ->
+				commands[type] user, params, (response) ->
+					if logId
+						processLogsCol.update {_id:logId}, $set:response:response, ->
+					else if env.log
+						commandResponse = response
+
+					sendResponse response
+					user.done()
+		else
+			commands[type] params, sendResponse
 
 
 start = ->
 	console.log 'started'
-
 	for commandName, __ of commands
 		do (commandName) ->
-			app.post "/#{commandName}", (req, res) ->
-				executeCommand commandName, req.body, (response) -> res.send response
+			app.post "/#{commandName}", (req, res) ->				
+				process.nextTick -> executeCommand commandName, req.body, (response) -> res.send response
 
 	app.post '/port/started', (req, res) ->
 		if clientIdsByServerId[req.body.serverId]
