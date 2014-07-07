@@ -905,7 +905,7 @@ module.exports = function(env, userIdForClientId, connection) {
               } else {
                 return _this.initShared(function() {
                   return _this.initOutline((function() {
-                    var changes, id, object, permitted, recordChanges, tableChanges, _ref, _ref1;
+                    var changes, id, object, permitted, recordChanges, tableChanges, _ref, _ref1, _ref2;
                     changes = args[0];
                     if (_this.shared['/'] && __indexOf.call(_this.shared['/'], userId) >= 0) {
                       for (table in changes) {
@@ -925,7 +925,7 @@ module.exports = function(env, userIdForClientId, connection) {
                           recordChanges = tableChanges[id];
                           if (id[0] === 'G') {
                             id = id.substr(1);
-                            if (_this.outline[table][id]) {
+                            if ((_ref2 = _this.outline[table]) != null ? _ref2[id] : void 0) {
                               r = {
                                 table: table,
                                 record: _this.outline[table][id]

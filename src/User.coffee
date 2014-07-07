@@ -579,7 +579,7 @@ module.exports =
 												for id,recordChanges of tableChanges
 													if id[0] == 'G'
 														id = id.substr 1
-														if @outline[table][id]
+														if @outline[table]?[id]
 															r = table:table, record:@outline[table][id]
 															permitted = false
 															while r
