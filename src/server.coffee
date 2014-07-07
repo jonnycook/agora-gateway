@@ -229,7 +229,7 @@ executeCommand = (type, params, sendResponse) ->
 			if !err
 				logId = records[0]._id
 				if commandResponse
-					processLogsCol.update {_id:logId}, response:commandResponse
+					processLogsCol.update {_id:logId}, response:commandResponse, ->
 			else
 				console.log 'error inserting log'
 

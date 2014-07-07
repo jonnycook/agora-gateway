@@ -330,7 +330,7 @@ executeCommand = function(type, params, sendResponse) {
             _id: logId
           }, {
             response: commandResponse
-          });
+          }, function() {});
         }
       } else {
         return console.log('error inserting log');
