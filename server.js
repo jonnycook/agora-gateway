@@ -351,10 +351,10 @@ executeCommand = function(type, params, sendResponse) {
       }
     });
     d.on('error', function(err) {
-      app.close();
+      var e;
       console.log('error', err.stack);
       if (logId) {
-        return processLogsCol.update({
+        processLogsCol.update({
           _id: logId
         }, {
           $set: {
@@ -367,15 +367,20 @@ executeCommand = function(type, params, sendResponse) {
           return process.exit();
         });
       } else {
-        return commandError = err;
+        commandError = err;
+      }
+      try {
+        return app.close();
+      } catch (_error) {
+        e = _error;
       }
     });
   } else {
     d.on('error', function(err) {
-      app.close();
+      var e;
       timestamp = new Date().getTime();
       console.log('error', err.stack);
-      return mongoDb.collection('errors').insert({
+      mongoDb.collection('errors').insert({
         process: serverProcessId,
         request: {
           timestamp: timestamp,
@@ -391,6 +396,11 @@ executeCommand = function(type, params, sendResponse) {
       }, function() {
         return process.exit();
       });
+      try {
+        return app.close();
+      } catch (_error) {
+        e = _error;
+      }
     });
   }
   return d.run(function() {

@@ -245,19 +245,25 @@ executeCommand = (type, params, sendResponse) ->
 					process.exit()
 
 		d.on 'error', (err) ->
-			app.close()
 			console.log 'error', err.stack
 			if logId
 				processLogsCol.update {_id:logId}, $set:error:message:err.message, stack:err.stack, -> process.exit()
 			else
 				commandError = err
+
+			try
+				app.close()
+			catch e
+
 	else
 		d.on 'error', (err) ->
-			app.close()
 			timestamp = new Date().getTime()
 			console.log 'error', err.stack
 			mongoDb.collection('errors').insert process:serverProcessId, request:{timestamp:timestamp, type:type, params:params}, error:{error:message:err.message, stack:err.stack}, ->
 				process.exit()
+			try
+				app.close()
+			catch e
 
 	d.run ->
 		if params.userId && commands[type].length == 3
