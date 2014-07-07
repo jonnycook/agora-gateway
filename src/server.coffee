@@ -46,11 +46,14 @@ userIdForClientId = (clientId, cb) ->
 		cb userIdsByClientId[clientId]
 	else
 		connection.query "SELECT user_id FROM clients WHERE client_id = '#{clientId}'", (error, rows, fields) ->
-			userIdsByClientId[clientId] = parseInt rows[0].user_id
-			data = {}
-			data["clients.#{clientId}"] = userIdsByClientId[clientId]
-			mongoDb.collection('snapshots').update {_id:serverProcessId}, '$set':data, ->
-			cb userIdsByClientId[clientId]
+			if rows.length
+				userIdsByClientId[clientId] = parseInt rows[0].user_id
+				data = {}
+				data["clients.#{clientId}"] = userIdsByClientId[clientId]
+				mongoDb.collection('snapshots').update {_id:serverProcessId}, '$set':data, ->
+				cb userIdsByClientId[clientId]
+			else
+				cb null
 
 User = require('./User') env, userIdForClientId, connection
 
@@ -76,6 +79,26 @@ app.get '/sync', (req, res) ->
 	user = User.user userId
 	user.syncClients()
 	res.send ''
+
+validate = (args..., success, fail) ->
+	results = []
+	for i in [0...args.length/2]
+		value = args[i]
+		type = args[i + 1]
+
+
+		switch type
+			when 'json'
+				result = parse value
+				if result instanceof Error
+					fail()
+					return
+				else
+					results[i] = result
+	success results...
+
+
+
 
 resolveUserId = (user, params, cb) ->
 	if params.clientId == 'Carl Sagan'
@@ -171,18 +194,25 @@ commands =
 		sendResponse 'ok'
 
 	collaborators: (user, params, sendResponse) ->
-		user.sendUpdate params.changes, '*'
-		if params.object
-			user.sendUpdate params.changes, params.object
-		sendResponse 'ok'
+		validate params.changes, 'json', 
+			->
+				user.sendUpdate params.changes, '*'
+				if params.object
+					user.sendUpdate params.changes, params.object
+				sendResponse 'ok'
+			-> sendResponse 'invalidInput'
 
 	update: (user, params, sendResponse) ->
-		user.hasPermissions params.clientId, 'update', parse(params.changes), (permission) ->
-			if permission
-				user.update params.clientId, params.updateToken, params.changes, (response) ->
-					sendResponse response
-			else
-				sendResponse 'not allowed'
+		validate params.changes, 'json',
+			(changes) ->
+				user.hasPermissions params.clientId, 'update', changes, (permission) ->
+					if permission
+						user.update params.clientId, params.updateToken, params.changes, (response) ->
+							sendResponse response
+					else
+						sendResponse 'not allowed'
+			-> sendResponse 'invalidInput'
+
 
 	subscribe: (user, params, sendResponse) ->
 		clientIdsByServerId[params.serverId] ?= {}
@@ -226,58 +256,63 @@ commands =
 
 shuttingDown = false
 executeCommand = (type, params, sendResponse) ->
-	console.log 'command', type, params
-	commandError = commandResponse = logId = null
-	d = domain.create()
-	
-	if env.log
-		timestamp = new Date().getTime()
-		processLogsCol.insert {timestamp:timestamp, type:type, params:params}, (err, records) ->
-			if !err
-				logId = records[0]._id
-				if commandResponse
-					processLogsCol.update {_id:logId}, $set:response:commandResponse, ->
-				else if commandError
-					processLogsCol.update {_id:logId}, $set:error:message:commandError.message, stack:commandError.stack, -> process.exit()
-			else
-				console.log 'error inserting log'
-				if commandError
-					process.exit()
-
-		d.on 'error', (err) ->
-			console.log 'error', err.stack
-			if logId
-				processLogsCol.update {_id:logId}, $set:error:message:err.message, stack:err.stack, -> process.exit()
-			else
-				commandError = err
-
-			try
-				app.close()
-			catch e
-
-	else
-		d.on 'error', (err) ->
+	if commands[type]
+		console.log 'command', type, params
+		commandError = commandResponse = logId = null
+		d = domain.create()
+		
+		if env.log
 			timestamp = new Date().getTime()
-			console.log 'error', err.stack
-			mongoDb.collection('errors').insert process:serverProcessId, request:{timestamp:timestamp, type:type, params:params}, error:{error:message:err.message, stack:err.stack}, ->
-				process.exit()
-			try
-				app.close()
-			catch e
+			processLogsCol.insert {timestamp:timestamp, type:type, params:params}, (err, records) ->
+				if !err
+					logId = records[0]._id
+					if commandResponse
+						processLogsCol.update {_id:logId}, $set:response:commandResponse, ->
+					else if commandError
+						processLogsCol.update {_id:logId}, $set:error:message:commandError.message, stack:commandError.stack, -> process.exit()
+				else
+					console.log 'error inserting log'
+					if commandError
+						process.exit()
 
-	d.run ->
-		if params.userId && commands[type].length == 3
-			User.operate params.userId, (user) ->
-				commands[type] user, params, (response) ->
-					if logId
-						processLogsCol.update {_id:logId}, $set:response:response, ->
-					else if env.log
-						commandResponse = response
+			d.on 'error', (err) ->
+				console.log 'error', err.stack
+				if logId
+					processLogsCol.update {_id:logId}, $set:error:message:err.message, stack:err.stack, -> process.exit()
+				else
+					commandError = err
 
-					sendResponse response
-					user.done()
+				try
+					app.close()
+				catch e
+
 		else
-			commands[type] params, sendResponse
+			d.on 'error', (err) ->
+				timestamp = new Date().getTime()
+				console.log 'error', err.stack
+				mongoDb.collection('errors').insert process:serverProcessId, request:{timestamp:timestamp, type:type, params:params}, error:{error:message:err.message, stack:err.stack}, ->
+					process.exit()
+				try
+					app.close()
+				catch e
+
+		d.run ->
+			if params.userId? && commands[type].length == 3
+				User.operate params.userId, (user) ->
+					if user
+						commands[type] user, params, (response) ->
+							if logId
+								processLogsCol.update {_id:logId}, $set:response:response, ->
+							else if env.log
+								commandResponse = response
+							sendResponse response
+							user.done()
+					else
+						sendResponse 'invalidUserId'
+			else
+				commands[type] params, sendResponse
+	else
+		sendResponse 'invalidCommand'
 
 
 start = ->

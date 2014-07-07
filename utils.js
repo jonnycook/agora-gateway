@@ -17,7 +17,12 @@ module.exports = {
         return cbs.success(obj);
       }
     } else {
-      return JSON.parse(json);
+      try {
+        return JSON.parse(json);
+      } catch (_error) {
+        e = _error;
+        return e;
+      }
     }
   }
 };

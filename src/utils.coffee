@@ -12,4 +12,7 @@ module.exports =
 				cbs.success obj
 		else
 			# TODO: handle errors here
-			JSON.parse json
+			try
+				JSON.parse json
+			catch e
+				e

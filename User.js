@@ -652,16 +652,24 @@ module.exports = function(env, userIdForClientId, connection) {
     User.userByClientId = function(clientId, cb) {
       return userIdForClientId(clientId, (function(_this) {
         return function(userId) {
-          return cb(_this.user(userId));
+          if (userId) {
+            return cb(_this.user(userId));
+          } else {
+            return cb(null);
+          }
         };
       })(this));
     };
 
     User.operateByClientId = function(clientId, cb) {
       return this.userByClientId(clientId, function(user) {
-        return user.operate(function() {
-          return cb(user);
-        });
+        if (user) {
+          return user.operate(function() {
+            return cb(user);
+          });
+        } else {
+          return cb();
+        }
       });
     };
 
@@ -893,6 +901,10 @@ module.exports = function(env, userIdForClientId, connection) {
         return userIdForClientId(clientId, (function(_this) {
           return function(userId) {
             var object;
+            if (!userId) {
+              cb(false);
+              return;
+            }
             if (action === 'init') {
               if (userId === _this.id) {
                 return cb(true);

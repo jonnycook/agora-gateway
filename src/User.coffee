@@ -414,11 +414,17 @@ module.exports =
 
 			@userByClientId: (clientId, cb) ->
 				userIdForClientId clientId, (userId) =>
-					cb @user userId
+					if userId
+						cb @user userId
+					else
+						cb null
 
 			@operateByClientId: (clientId, cb) ->
 				@userByClientId clientId, (user) ->
-					user.operate -> cb user
+					if user
+						user.operate -> cb user
+					else
+						cb()
 
 			@operate: (userId, cb) ->
 				user = @user userId
@@ -556,6 +562,11 @@ module.exports =
 					cb true
 				else
 					userIdForClientId clientId, (userId) =>
+						# TODO: should we handle this differently?
+						if !userId
+							cb false
+							return
+
 						if action == 'init'
 							if userId == @id
 								cb true
