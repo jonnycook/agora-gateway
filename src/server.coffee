@@ -222,13 +222,26 @@ commands =
 
 executeCommand = (type, params, sendResponse) ->
 	console.log 'command', type, params
+	commandResponse = logId = null
 	if env.log
 		timestamp = new Date().getTime()
-		processLogsCol.insert {timestamp:timestamp, type:type, params:JSON.stringify params}, ->
+		processLogsCol.insert {timestamp:timestamp, type:type, params:params}, (err, records) ->
+			if !err
+				logId = records[0]._id
+				if commandResponse
+					processLogsCol.update {_id:logId}, response:commandResponse
+			else
+				console.log 'error inserting log'
+
 
 	if params.userId && commands[type].length == 3
 		User.operate params.userId, (user) ->
 			commands[type] user, params, (response) ->
+				if logId
+					processLogsCol.update {_id:logId}, $set:response:response, ->
+				else if env.log
+					commandResponse = response
+
 				sendResponse response
 				user.done()
 	else
@@ -294,10 +307,7 @@ if process.argv[2]
 							console.log 'done'
 					next()
 else
-	request {
-		method:'get'
-		url: "http://#{env.getUpdateServer()}/saveSnapshot.php?id=#{serverProcessId}"
-	}, (error, response, body) =>
+	doInit = ->
 		env.init ->
 			MongoClient.connect env.mongoDb, (err, db) ->
 				mongoDb = db
@@ -314,3 +324,10 @@ else
 						console.log 'has error', error if error
 						if ++count == env.portServers.length
 							start()
+
+	doInit()
+
+	# request {
+	# 	method:'get'
+	# 	url: "http://#{env.getUpdateServer()}/saveSnapshot.php?id=#{serverProcessId}"
+	# }, (error, response, body) =>
