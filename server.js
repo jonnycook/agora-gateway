@@ -144,6 +144,9 @@ resolveUserId = function(user, params, cb) {
 };
 
 commands = {
+  error: function() {
+    throw new Error();
+  },
   init: function(user, params, sendResponse) {
     var _name;
     if (clientIdsByServerId[_name = params.serverId] == null) {
@@ -589,5 +592,3 @@ if (process.argv[2]) {
   };
   doInit();
 }
-
-//# sourceMappingURL=server.map

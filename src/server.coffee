@@ -110,7 +110,10 @@ resolveUserId = (user, params, cb) ->
 			else
 				cb null
 
-commands = 
+commands =
+	error: ->
+		throw new Error()
+
 	init: (user, params, sendResponse) ->
 		clientIdsByServerId[params.serverId] ?= {}
 		clientIdsByServerId[params.serverId][params.clientId] = true
@@ -292,11 +295,13 @@ executeCommand = (type, params, sendResponse) ->
 				console.log 'error', err.stack
 				mongoDb.collection('errors').insert process:serverProcessId, request:{timestamp:timestamp, type:type, params:params}, error:{error:message:err.message, stack:err.stack}, ->
 					process.exit()
+
 				try
 					app.close()
 				catch e
 
 		d.run ->
+			# throw new Error()
 			if params.userId? && commands[type].length == 3
 				User.operate params.userId, (user) ->
 					if user
