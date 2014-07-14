@@ -1089,3 +1089,5 @@ module.exports = function(env, userIdForClientId, connection) {
 
   })();
 };
+
+//# sourceMappingURL=User.map

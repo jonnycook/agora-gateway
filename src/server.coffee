@@ -114,6 +114,14 @@ commands =
 	error: ->
 		throw new Error()
 
+	track: (params, sendResponse) ->
+		request
+			url: "http://#{env.getUpdateServer()}/track.php?clientId=#{params.clientId}",
+			method: 'post'
+			form: args:params.args,
+			(err, response, body) ->
+				console.log body
+
 	init: (user, params, sendResponse) ->
 		clientIdsByServerId[params.serverId] ?= {}
 		clientIdsByServerId[params.serverId][params.clientId] = true
@@ -302,6 +310,10 @@ executeCommand = (type, params, sendResponse) ->
 
 		d.run ->
 			# throw new Error()
+			func = if _.isFunction commands[type] then commands[type] else commands[type].command
+
+			# operate = commands[type].operate !== false && params.userId? && func.length === 3
+
 			if params.userId? && commands[type].length == 3
 				User.operate params.userId, (user) ->
 					if user

@@ -147,6 +147,17 @@ commands = {
   error: function() {
     throw new Error();
   },
+  track: function(params, sendResponse) {
+    return request({
+      url: "http://" + (env.getUpdateServer()) + "/track.php?clientId=" + params.clientId,
+      method: 'post',
+      form: {
+        args: params.args
+      }
+    }, function(err, response, body) {
+      return console.log(body);
+    });
+  },
   init: function(user, params, sendResponse) {
     var _name;
     if (clientIdsByServerId[_name = params.serverId] == null) {
@@ -442,6 +453,8 @@ executeCommand = function(type, params, sendResponse) {
       });
     }
     return d.run(function() {
+      var func;
+      func = _.isFunction(commands[type]) ? commands[type] : commands[type].command;
       if ((params.userId != null) && commands[type].length === 3) {
         return User.operate(params.userId, function(user) {
           if (user) {
@@ -592,3 +605,5 @@ if (process.argv[2]) {
   };
   doInit();
 }
+
+//# sourceMappingURL=server.map
