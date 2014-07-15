@@ -148,7 +148,7 @@ commands = {
     throw new Error();
   },
   track: function(params, sendResponse) {
-    return request({
+    request({
       url: "http://" + (env.getUpdateServer()) + "/track.php?clientId=" + params.clientId,
       method: 'post',
       form: {
@@ -157,6 +157,7 @@ commands = {
     }, function(err, response, body) {
       return console.log(body);
     });
+    return sendResponse();
   },
   init: function(user, params, sendResponse) {
     var _name;

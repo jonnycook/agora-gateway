@@ -121,6 +121,7 @@ commands =
 			form: args:params.args,
 			(err, response, body) ->
 				console.log body
+		sendResponse()
 
 	init: (user, params, sendResponse) ->
 		clientIdsByServerId[params.serverId] ?= {}
