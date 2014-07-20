@@ -387,15 +387,35 @@ module.exports =
 								if body.status == 'ok'
 									if @subscribers && body.changes
 										@processChanges body.changes, =>
-											cb JSON.stringify
+											response = 
 												status:'ok'
 												updateToken:body.updateToken
 												mapping:body.mapping
+
+											if body.return
+												changes = {}
+												for table,ids of body.return
+													changes[table] = {}
+													for id in ids
+														changes[table][id] = body.changes[table][id]
+												response.changes = changes
+
+											cb JSON.stringify response
 									else
-										cb JSON.stringify
+										response = 
 											status:'ok'
 											updateToken:body.updateToken
 											mapping:body.mapping
+
+										if body.changes && body.return
+											changes = {}
+											for table,ids of body.return
+												changes[table] = {}
+												for id in ids
+													changes[table][id] = body.changes[table][id]
+											response.changes = changes
+
+										cb JSON.stringify response
 
 								else if body.status == 'invalidUpdateToken'
 									cb JSON.stringify

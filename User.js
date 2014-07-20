@@ -604,21 +604,51 @@ module.exports = function(env, userIdForClientId, connection) {
                 return cb('error');
               },
               success: function(body) {
+                var id, ids, _j, _len1, _ref;
                 if (body.status === 'ok') {
                   if (_this.subscribers && body.changes) {
                     return _this.processChanges(body.changes, function() {
-                      return cb(JSON.stringify({
+                      var id, ids, _j, _len1, _ref;
+                      response = {
                         status: 'ok',
                         updateToken: body.updateToken,
                         mapping: body.mapping
-                      }));
+                      };
+                      if (body["return"]) {
+                        changes = {};
+                        _ref = body["return"];
+                        for (table in _ref) {
+                          ids = _ref[table];
+                          changes[table] = {};
+                          for (_j = 0, _len1 = ids.length; _j < _len1; _j++) {
+                            id = ids[_j];
+                            changes[table][id] = body.changes[table][id];
+                          }
+                        }
+                        response.changes = changes;
+                      }
+                      return cb(JSON.stringify(response));
                     });
                   } else {
-                    return cb(JSON.stringify({
+                    response = {
                       status: 'ok',
                       updateToken: body.updateToken,
                       mapping: body.mapping
-                    }));
+                    };
+                    if (body.changes && body["return"]) {
+                      changes = {};
+                      _ref = body["return"];
+                      for (table in _ref) {
+                        ids = _ref[table];
+                        changes[table] = {};
+                        for (_j = 0, _len1 = ids.length; _j < _len1; _j++) {
+                          id = ids[_j];
+                          changes[table][id] = body.changes[table][id];
+                        }
+                      }
+                      response.changes = changes;
+                    }
+                    return cb(JSON.stringify(response));
                   }
                 } else if (body.status === 'invalidUpdateToken') {
                   return cb(JSON.stringify({
