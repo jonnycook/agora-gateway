@@ -616,10 +616,12 @@ module.exports =
 					userIdForClientId clientId, (userId) =>
 						# TODO: should we handle this differently?
 						if !userId
+							console.log 'no user id'
 							cb false
 							return
 
 						if action == 'init'
+							console.log userId, @id
 							if userId == @id
 								cb true
 							else

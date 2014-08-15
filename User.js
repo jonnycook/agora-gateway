@@ -983,10 +983,12 @@ module.exports = function(env, userIdForClientId, connection) {
           return function(userId) {
             var object;
             if (!userId) {
+              console.log('no user id');
               cb(false);
               return;
             }
             if (action === 'init') {
+              console.log(userId, _this.id);
               if (userId === _this.id) {
                 return cb(true);
               } else {
