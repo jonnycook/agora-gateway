@@ -17,7 +17,8 @@ map =
 		'descriptors'
 	ObjectReference:
 		'object_references'
-	
+	FeedbackPage:
+		'feedback_pages'
 
 graph =
 	object_references:
@@ -55,7 +56,15 @@ graph =
 		decision_elements:
 			field: 'decision_id'
 			owns:true
-			filter: (table, record, otherRecord) -> map[otherRecord.element_type] == table
+			# filter: (table, record, otherRecord) -> map[otherRecord.element_type] == table
+
+		decision_suggestions:
+			field: 'decision_id'
+			owns:true
+
+		feedback_pages:
+			field: 'decision_id'
+			owns:true
 
 		root_elements:
 			field: 'element_id'
@@ -84,6 +93,11 @@ graph =
 
 
 	decision_elements:
+		decision_id:
+			table: 'decisions'
+			owner:true
+
+	decision_suggestions:
 		decision_id:
 			table: 'decisions'
 			owner:true
@@ -198,6 +212,54 @@ graph =
 			table: (record) -> map[record.object_type]
 			onwer:true
 
+	feedback_pages:
+		decision_id:
+			table: 'decisions'
+			owner:true
 
+		feedback_items:
+			field: 'feedback_page_id'
+			owns:true
+
+		feedback_comments:
+			field: 'feedback_page_id'
+			owns:true
+
+		feedback_page_reference_items:
+			field: 'feedback_page_id'
+			owns:true
+
+	feedback_page_reference_items:
+		feedback_page_id:
+			table: 'feedback_pages'
+			owner:true
+
+	feedback_items:
+		feedback_page_id:
+			table:'feedback_pages'
+			owner:true
+
+		feedback_item_replies:
+			field:'feedback_item_id'
+			owns:true
+
+	feedback_item_replies:
+		feedback_item_id:
+			table: 'feedback_items'
+			owner:true
+
+	feedback_comments:
+		feedback_page_id:
+			table:'feedback_pages'
+			owner:true
+
+		feedback_comment_replies:
+			field:'feedback_comment_id'
+			owns:true
+
+	feedback_comment_replies:
+		feedback_comment_id:
+			table: 'feedback_comments'
+			owner:true
 
 module.exports = graph

@@ -26,6 +26,11 @@ module.exports =
 				root_elements: element_type:'value'
 				bundle_elements: element_type:'value'
 				list_elements: element_type:'value'
+				feedback_items: creator_id:'int'
+				feedback_item_replies: creator_id:'int'
+				decision_suggestions: creator_id:'int'
+				feedback_comments: creator_id:'int'
+				feedback_comment_replies: creator_id:'int'
 
 			inGraph: (table) -> @inGraph[table] ? @rels[table]
 
@@ -162,8 +167,12 @@ module.exports =
 										table = rel.table
 										do (table) =>
 											connection.query "SELECT * FROM m_#{table} WHERE #{rel.field} = #{record.id}", (err, rows, fields) =>
-												cb new Record table, row for row in rows
-												tick()
+												if rows
+													cb new Record table, row for row in rows
+													tick()
+												else
+													console.log table, err
+													throw new Error()
 									else
 										table = if _.isFunction rel.table then rel.table record else rel.table
 										do (table) =>
@@ -450,6 +459,19 @@ module.exports =
 				user = @user userId
 				user.operate -> cb user
 
+			addShared: (object, userId, role) ->
+				if @shared
+					@shared[object] ?= {}
+					@shared[object][userId] = role:parseInt role
+
+			deleteShared: (object, userId) ->
+				if @shared
+					if @shared[object]
+						delete @shared[object][userId]
+						if _.isEmpty @shared[object]
+							delete @shared[object]
+
+
 			constructor: (id) ->
 				@id = parseInt id
 				@clientIds = {}
@@ -502,20 +524,27 @@ module.exports =
 									userId:@id
 									changes:changes
 
-			addToOutline: (table, id, inValues) ->
-				# testLog @id, 'addToOutline', table, id, inValues
-				# TODO: make more general
-				return if table == 'activity'
+
+			stripForOutline: (table, inValues) ->
 				values = {}
 				for name,type of Graph.fields[table]
 					if name of inValues
 						if type == 'value'
 							values[name] = inValues[name]
+						else if type == 'int'
+							values[name] = parseInt inValues[name]
 						else if type == 'id'
 							if inValues[name][0] == 'G'
 								values[name] = parseInt inValues[name].substr 1
 							else
 								values[name] = parseInt inValues[name]
+				values
+
+			addToOutline: (table, id, inValues) ->
+				# testLog @id, 'addToOutline', table, id, inValues
+				# TODO: make more general
+				return if table == 'activity'
+				values = @stripForOutline table, inValues
 
 				@outline[table] ?= {}
 				if !@outline[table][id]
@@ -577,6 +606,9 @@ module.exports =
 						if _.isEmpty User.clientSubscriptions[clientId]
 							delete User.clientSubscriptions[clientId]
 
+
+			# userPermissions: ()
+
 			hasPermissions: (clientId, action, args..., cb) ->
 				if clientId == 'Carl Sagan'
 					cb true
@@ -599,7 +631,7 @@ module.exports =
 								@initShared =>
 									@initOutline (=>
 										changes = args[0]
-										if @shared['/'] && userId in @shared['/']
+										if @shared['/']?[userId]
 											for table,tableChanges of changes
 												for id,recordChanges of tableChanges
 													if id[0] == 'G' && !@outline?[table]?[id.substr 1]
@@ -608,24 +640,43 @@ module.exports =
 										else
 											for table,tableChanges of changes
 												for id,recordChanges of tableChanges
+													r = null
+													mode = null
 													if id[0] == 'G'
-														id = id.substr 1
-														if @outline[table]?[id]
-															r = table:table, record:@outline[table][id]
-															permitted = false
-															while r
-																object = "#{r.table}.#{r.record.id}"
-																if @shared[object] && (userId in @shared[object])
-																	permitted = true
-																	break
-																r = Graph.owner @outline, r.table, r.record
-
-															if !permitted
-																cb false
-																return
+														r = table:table, record:@outline[table][id.substr 1]
+														if recordChanges == 'deleted'
+															mode = 'delete'
 														else
+															mode = 'update'
+													else
+														r = table:table, record:@stripForOutline table, recordChanges
+														mode = 'create'
+
+													if r?.record
+														permitted = false
+														while r
+															console.log r
+															object = "#{r.table}.#{r.record.id}"
+															if perm = @shared[object]?[userId]
+																if perm.role == 0
+																	permitted = true
+																else if perm.role == 1
+																	if table in ['feedback_items', 'feedback_item_replies', 'decision_suggestions', 'feedback_comments', 'feedback_comment_replies']
+																		if mode != 'create'
+																			if @outline[table][id.substr 1].creator_id == userId
+																				permitted = true
+																		else
+																			permitted = true
+
+																break
+															r = Graph.owner @outline, r.table, r.record
+
+														if !permitted
 															cb false
 															return
+													else
+														cb false
+														return
 										cb true
 									), true
 						else if action == 'subscribe'
@@ -649,7 +700,7 @@ module.exports =
 											cb false
 								else
 									@initShared =>
-										if @shared[object] && (userId in @shared[object])
+										if @shared[object]?[userId]
 											cb true
 										else
 											cb false
@@ -657,10 +708,11 @@ module.exports =
 			initShared: (cb) ->
 				if !@shared
 					@shared = {}
-					connection.query "SELECT * FROM shared WHERE user_id = #{@id}", (error, rows, fields) =>
+					connection.query "SELECT with_user_id, object, role FROM shared WHERE user_id = #{@id}", (error, rows, fields) =>
 						for row in rows
-							@shared[row.object] ?= []
-							@shared[row.object].push row.with_user_id
+							@addShared row.object, row.with_user_id, row.role
+							# @shared[row.object] ?= {}
+							# @shared[row.object][row.with_user_id] = role:row.role
 						cb()
 				else
 					cb()

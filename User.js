@@ -48,6 +48,21 @@ module.exports = function(env, userIdForClientId, connection) {
       },
       list_elements: {
         element_type: 'value'
+      },
+      feedback_items: {
+        creator_id: 'int'
+      },
+      feedback_item_replies: {
+        creator_id: 'int'
+      },
+      decision_suggestions: {
+        creator_id: 'int'
+      },
+      feedback_comments: {
+        creator_id: 'int'
+      },
+      feedback_comment_replies: {
+        creator_id: 'int'
       }
     },
     inGraph: function(table) {
@@ -265,11 +280,16 @@ module.exports = function(env, userIdForClientId, connection) {
                   return (function(table) {
                     return connection.query("SELECT * FROM m_" + table + " WHERE " + rel.field + " = " + record.id, function(err, rows, fields) {
                       var row, _k, _len2;
-                      for (_k = 0, _len2 = rows.length; _k < _len2; _k++) {
-                        row = rows[_k];
-                        cb(new Record(table, row));
+                      if (rows) {
+                        for (_k = 0, _len2 = rows.length; _k < _len2; _k++) {
+                          row = rows[_k];
+                          cb(new Record(table, row));
+                        }
+                        return tick();
+                      } else {
+                        console.log(table, err);
+                        throw new Error();
                       }
-                      return tick();
                     });
                   })(table);
                 } else {
@@ -711,6 +731,29 @@ module.exports = function(env, userIdForClientId, connection) {
       });
     };
 
+    User.prototype.addShared = function(object, userId, role) {
+      var _base3;
+      if (this.shared) {
+        if ((_base3 = this.shared)[object] == null) {
+          _base3[object] = {};
+        }
+        return this.shared[object][userId] = {
+          role: parseInt(role)
+        };
+      }
+    };
+
+    User.prototype.deleteShared = function(object, userId) {
+      if (this.shared) {
+        if (this.shared[object]) {
+          delete this.shared[object][userId];
+          if (_.isEmpty(this.shared[object])) {
+            return delete this.shared[object];
+          }
+        }
+      }
+    };
+
     function User(id) {
       this.id = parseInt(id);
       this.clientIds = {};
@@ -804,11 +847,8 @@ module.exports = function(env, userIdForClientId, connection) {
       }
     };
 
-    User.prototype.addToOutline = function(table, id, inValues) {
-      var contained, field, type, value, values, _base3, _j, _len1, _ref;
-      if (table === 'activity') {
-        return;
-      }
+    User.prototype.stripForOutline = function(table, inValues) {
+      var type, values, _ref;
       values = {};
       _ref = Graph.fields[table];
       for (name in _ref) {
@@ -816,6 +856,8 @@ module.exports = function(env, userIdForClientId, connection) {
         if (name in inValues) {
           if (type === 'value') {
             values[name] = inValues[name];
+          } else if (type === 'int') {
+            values[name] = parseInt(inValues[name]);
           } else if (type === 'id') {
             if (inValues[name][0] === 'G') {
               values[name] = parseInt(inValues[name].substr(1));
@@ -825,6 +867,15 @@ module.exports = function(env, userIdForClientId, connection) {
           }
         }
       }
+      return values;
+    };
+
+    User.prototype.addToOutline = function(table, id, inValues) {
+      var contained, field, value, values, _base3, _j, _len1;
+      if (table === 'activity') {
+        return;
+      }
+      values = this.stripForOutline(table, inValues);
       if ((_base3 = this.outline)[table] == null) {
         _base3[table] = {};
       }
@@ -947,14 +998,14 @@ module.exports = function(env, userIdForClientId, connection) {
               } else {
                 return _this.initShared(function() {
                   return _this.initOutline((function() {
-                    var changes, id, object, permitted, recordChanges, tableChanges, _ref, _ref1, _ref2;
+                    var changes, id, mode, object, perm, permitted, recordChanges, tableChanges, _ref, _ref1, _ref2, _ref3;
                     changes = args[0];
-                    if (_this.shared['/'] && __indexOf.call(_this.shared['/'], userId) >= 0) {
+                    if ((_ref = _this.shared['/']) != null ? _ref[userId] : void 0) {
                       for (table in changes) {
                         tableChanges = changes[table];
                         for (id in tableChanges) {
                           recordChanges = tableChanges[id];
-                          if (id[0] === 'G' && !((_ref = _this.outline) != null ? (_ref1 = _ref[table]) != null ? _ref1[id.substr(1)] : void 0 : void 0)) {
+                          if (id[0] === 'G' && !((_ref1 = _this.outline) != null ? (_ref2 = _ref1[table]) != null ? _ref2[id.substr(1)] : void 0 : void 0)) {
                             cb(false);
                             return;
                           }
@@ -965,30 +1016,55 @@ module.exports = function(env, userIdForClientId, connection) {
                         tableChanges = changes[table];
                         for (id in tableChanges) {
                           recordChanges = tableChanges[id];
+                          r = null;
+                          mode = null;
                           if (id[0] === 'G') {
-                            id = id.substr(1);
-                            if ((_ref2 = _this.outline[table]) != null ? _ref2[id] : void 0) {
-                              r = {
-                                table: table,
-                                record: _this.outline[table][id]
-                              };
-                              permitted = false;
-                              while (r) {
-                                object = "" + r.table + "." + r.record.id;
-                                if (_this.shared[object] && (__indexOf.call(_this.shared[object], userId) >= 0)) {
-                                  permitted = true;
-                                  break;
-                                }
-                                r = Graph.owner(_this.outline, r.table, r.record);
-                              }
-                              if (!permitted) {
-                                cb(false);
-                                return;
-                              }
+                            r = {
+                              table: table,
+                              record: _this.outline[table][id.substr(1)]
+                            };
+                            if (recordChanges === 'deleted') {
+                              mode = 'delete';
                             } else {
+                              mode = 'update';
+                            }
+                          } else {
+                            r = {
+                              table: table,
+                              record: _this.stripForOutline(table, recordChanges)
+                            };
+                            mode = 'create';
+                          }
+                          if (r != null ? r.record : void 0) {
+                            permitted = false;
+                            while (r) {
+                              console.log(r);
+                              object = "" + r.table + "." + r.record.id;
+                              if (perm = (_ref3 = _this.shared[object]) != null ? _ref3[userId] : void 0) {
+                                if (perm.role === 0) {
+                                  permitted = true;
+                                } else if (perm.role === 1) {
+                                  if (table === 'feedback_items' || table === 'feedback_item_replies' || table === 'decision_suggestions' || table === 'feedback_comments' || table === 'feedback_comment_replies') {
+                                    if (mode !== 'create') {
+                                      if (_this.outline[table][id.substr(1)].creator_id === userId) {
+                                        permitted = true;
+                                      }
+                                    } else {
+                                      permitted = true;
+                                    }
+                                  }
+                                }
+                                break;
+                              }
+                              r = Graph.owner(_this.outline, r.table, r.record);
+                            }
+                            if (!permitted) {
                               cb(false);
                               return;
                             }
+                          } else {
+                            cb(false);
+                            return;
                           }
                         }
                       }
@@ -1023,7 +1099,8 @@ module.exports = function(env, userIdForClientId, connection) {
                   });
                 } else {
                   return _this.initShared(function() {
-                    if (_this.shared[object] && (__indexOf.call(_this.shared[object], userId) >= 0)) {
+                    var _ref;
+                    if ((_ref = _this.shared[object]) != null ? _ref[userId] : void 0) {
                       return cb(true);
                     } else {
                       return cb(false);
@@ -1040,15 +1117,12 @@ module.exports = function(env, userIdForClientId, connection) {
     User.prototype.initShared = function(cb) {
       if (!this.shared) {
         this.shared = {};
-        return connection.query("SELECT * FROM shared WHERE user_id = " + this.id, (function(_this) {
+        return connection.query("SELECT with_user_id, object, role FROM shared WHERE user_id = " + this.id, (function(_this) {
           return function(error, rows, fields) {
-            var row, _base3, _j, _len1, _name;
+            var row, _j, _len1;
             for (_j = 0, _len1 = rows.length; _j < _len1; _j++) {
               row = rows[_j];
-              if ((_base3 = _this.shared)[_name = row.object] == null) {
-                _base3[_name] = [];
-              }
-              _this.shared[row.object].push(row.with_user_id);
+              _this.addShared(row.object, row.with_user_id, row.role);
             }
             return cb();
           };

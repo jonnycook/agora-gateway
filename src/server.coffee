@@ -98,8 +98,6 @@ validate = (args..., success, fail) ->
 	success results...
 
 
-
-
 resolveUserId = (user, params, cb) ->
 	if params.clientId == 'Carl Sagan'
 		cb params.userId
@@ -170,10 +168,8 @@ commands =
 		if user.subscribers?['*']
 			changes = shared_objects:{}
 			if action == 'create'
-				if user.shared && parseInt(record.user_id) == user.id
-					if !user.shared[record.object]
-						user.shared[record.object] = []
-					user.shared[record.object].push parseInt record.with_user_id
+				if parseInt(record.user_id) == user.id
+					user.addShared record.object, record.with_user_id, record.role
 
 				changes.shared_objects['G' + record.id] =
 					user_id:'G' + record.user_id
@@ -182,17 +178,15 @@ commands =
 					object:record.object
 					user_name:record.user_name
 					with_user_name:record.with_user_name
+					role:record.role
+
 			if action == 'update'
 				changes.shared_objects['G' + record.id] =
 					title:record.title
 			else if action == 'delete'
 				if record.with_user_id
 					withUserId = parseInt record.with_user_id
-					if user.shared
-						if user.shared[record.object]
-							_.pull user.shared[record.object], withUserId
-							if !user.shared[record.object].length
-								delete user.shared[record.object]
+					user.deleteShared record.object, withUserId
 
 					clientIds = clientsIdsForUserId[withUserId]
 					if clientIds
