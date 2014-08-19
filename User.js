@@ -1016,6 +1016,9 @@ module.exports = function(env, userIdForClientId, connection) {
                     } else {
                       for (table in changes) {
                         tableChanges = changes[table];
+                        if (table === 'activity') {
+                          continue;
+                        }
                         for (id in tableChanges) {
                           recordChanges = tableChanges[id];
                           r = null;
@@ -1040,7 +1043,6 @@ module.exports = function(env, userIdForClientId, connection) {
                           if (r != null ? r.record : void 0) {
                             permitted = false;
                             while (r) {
-                              console.log(r);
                               object = "" + r.table + "." + r.record.id;
                               if (perm = (_ref3 = _this.shared[object]) != null ? _ref3[userId] : void 0) {
                                 if (perm.role === 0) {

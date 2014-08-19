@@ -641,9 +641,11 @@ module.exports =
 														return
 										else
 											for table,tableChanges of changes
+												continue if table == 'activity'
 												for id,recordChanges of tableChanges
 													r = null
 													mode = null
+
 													if id[0] == 'G'
 														r = table:table, record:@outline[table][id.substr 1]
 														if recordChanges == 'deleted'
@@ -657,7 +659,6 @@ module.exports =
 													if r?.record
 														permitted = false
 														while r
-															console.log r
 															object = "#{r.table}.#{r.record.id}"
 															if perm = @shared[object]?[userId]
 																if perm.role == 0
