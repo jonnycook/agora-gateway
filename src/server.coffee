@@ -40,18 +40,21 @@ app = express()
 app.use bodyParser limit:'50mb'
 app.listen env.httpPort
 
-userIdsByClientId = {}
+usersByClientId = {}
 userIdForClientId = (clientId, cb) ->
-	if userIdsByClientId[clientId]
-		cb userIdsByClientId[clientId]
+	if usersByClientId[clientId]
+		cb usersByClientId[clientId].id
 	else
-		connection.query "SELECT user_id FROM clients WHERE client_id = '#{clientId}'", (error, rows, fields) ->
+		connection.query "SELECT user_id, subscribes FROM clients WHERE client_id = '#{clientId}'", (error, rows, fields) ->
 			if rows.length
-				userIdsByClientId[clientId] = parseInt rows[0].user_id
-				data = {}
-				data["clients.#{clientId}"] = userIdsByClientId[clientId]
-				mongoDb.collection('snapshots').update {_id:serverProcessId}, '$set':data, ->
-				cb userIdsByClientId[clientId]
+				usersByClientId[clientId] =
+					subscribes:parseInt rows[0].subscribes
+					id:parseInt rows[0].user_id
+
+				# data = {}
+				# data["clients.#{clientId}"] = usersByClientId[clientId]
+				# mongoDb.collection('snapshots').update {_id:serverProcessId}, '$set':data, ->
+				cb usersByClientId[clientId].id
 			else
 				cb null
 
@@ -122,11 +125,15 @@ commands =
 		sendResponse()
 
 	init: (user, params, sendResponse) ->
-		clientIdsByServerId[params.serverId] ?= {}
-		clientIdsByServerId[params.serverId][params.clientId] = true
+		if params.serverId
+			clientIdsByServerId[params.serverId] ?= {}
+			clientIdsByServerId[params.serverId][params.clientId] = true
+
 		user.hasPermissions params.clientId, 'init', (permission) ->
 			if permission
-				user.addSubscriber params.clientId, '*'
+				if usersByClientId[params.clientId].subscribes
+					user.addSubscriber params.clientId, '*'
+
 				user.data '*', (data) ->
 					sendResponse data
 			else
@@ -221,8 +228,9 @@ commands =
 
 
 	subscribe: (user, params, sendResponse) ->
-		clientIdsByServerId[params.serverId] ?= {}
-		clientIdsByServerId[params.serverId][params.clientId] = true
+		if params.serverId
+			clientIdsByServerId[params.serverId] ?= {}
+			clientIdsByServerId[params.serverId][params.clientId] = true
 
 		user.hasPermissions params.clientId, 'subscribe', params.object, params.key, (permission) ->
 			if permission
@@ -230,7 +238,10 @@ commands =
 					clientsIdsForUserId[userId] ?= []
 					if !(params.clientId in clientsIdsForUserId[userId])
 						clientsIdsForUserId[userId].push params.clientId
-					user.addSubscriber params.clientId, params.object
+
+					if usersByClientId[params.clientId].subscribes
+						user.addSubscriber params.clientId, params.object
+
 					user.data params.object, (data) ->
 						sendResponse data
 			else
