@@ -268,6 +268,15 @@ commands = {
       return sendResponse('invalidInput');
     });
   },
+  sendUpdate: function(params, sendResponse) {
+    validate(params.changes, 'json', function() {
+      return User.operate(params.userId, function(user) {
+        user.sendUpdate(params.changes, '*');
+        return user.done();
+      });
+    }, function() {});
+    return sendResponse('ok');
+  },
   update: function(user, params, sendResponse) {
     return validate(params.changes, 'json', function(changes) {
       return user.hasPermissions(params.clientId, 'update', changes, function(permission) {

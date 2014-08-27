@@ -779,6 +779,7 @@ module.exports = function(env, userIdForClientId, connection) {
         if (!this.queue.length) {
           delete this.queue;
         }
+        this.operating = true;
         return func();
       }
     };

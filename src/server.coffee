@@ -215,6 +215,15 @@ commands =
 				sendResponse 'ok'
 			-> sendResponse 'invalidInput'
 
+	sendUpdate: (params, sendResponse) ->
+		validate params.changes, 'json', 
+			->
+				User.operate params.userId, (user) ->
+					user.sendUpdate params.changes, '*'
+					user.done()
+			->
+		sendResponse 'ok'
+
 	update: (user, params, sendResponse) ->
 		validate params.changes, 'json',
 			(changes) ->

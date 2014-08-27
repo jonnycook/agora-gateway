@@ -490,6 +490,7 @@ module.exports =
 					func = @queue.shift()
 					if !@queue.length
 						delete @queue
+					@operating = true
 					func()
 
 			syncClients: ->
