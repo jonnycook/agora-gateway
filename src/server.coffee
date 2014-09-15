@@ -71,6 +71,8 @@ app.get '/debug', (req, res) ->
 	console.log user.outline
 	console.log '=user.shared='
 	console.log user.shared
+	console.log '=user.permissions='
+	console.log user.permissions
 	console.log '=User.clientSubscriptions='
 	console.log User.clientSubscriptions
 	console.log '=clientIdsByServerId='
@@ -206,6 +208,18 @@ commands =
 
 		sendResponse 'ok'
 
+	alterPermission: (params, sendResponse) ->
+		User.operate params.userId, (user) ->
+			switch params.action
+				when 'create'
+					user.addPermission params.permission.object, params.permission.userId, params.permission.level
+				when 'delete'
+					user.deletePermission params.permission.object, params.permission.userId
+				when 'update'
+					user.updatePermission params.permission.object, params.permission.userId, params.permission.level
+			user.done()
+		sendResponse 'ok'
+
 	collaborators: (user, params, sendResponse) ->
 		validate params.changes, 'json', 
 			->
@@ -251,8 +265,8 @@ commands =
 					if usersByClientId[params.clientId].subscribes
 						user.addSubscriber params.clientId, params.object
 
-					user.data params.object, (data) ->
-						sendResponse data
+					user.data params.object, ((data) ->
+						sendResponse data), clientId:params.clientId
 			else
 				sendResponse 'not allowed'
 
@@ -352,7 +366,10 @@ start = ->
 	for commandName, __ of commands
 		do (commandName) ->
 			app.post "/#{commandName}", (req, res) ->				
-				process.nextTick -> executeCommand commandName, req.body, (response) -> res.send response
+				process.nextTick -> executeCommand commandName, req.body, (response) ->
+					res.header 'Access-Control-Allow-Origin', 'http://webapp.agora.dev'
+					res.header 'Access-Control-Allow-Credentials', 'true'
+					res.send response
 
 	app.post '/port/started', (req, res) ->
 		if clientIdsByServerId[req.body.serverId]

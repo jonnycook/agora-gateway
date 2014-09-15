@@ -244,6 +244,7 @@ graph =
 			owns:true
 
 	feedback_item_replies:
+		leaf:true
 		feedback_item_id:
 			table: 'feedback_items'
 			owner:true

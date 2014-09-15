@@ -35,48 +35,48 @@ module.exports =
 			inGraph: (table) -> @inGraph[table] ? @rels[table]
 
 			children: (db, table, record) ->
-					contained = []
-					for rel in @rels[table]
-						if rel.owns
-							if !rel.foreignKey
-								containedTable = if _.isFunction rel.table then rel.table record else rel.table
-								containedRecord = db[containedTable]?[record[rel.field]]
+				contained = []
+				for rel in @rels[table]
+					if rel.owns
+						if !rel.foreignKey
+							containedTable = if _.isFunction rel.table then rel.table record else rel.table
+							containedRecord = db[containedTable]?[record[rel.field]]
 
-								if containedRecord
-									if _.isFunction rel.owns
-										if rel.owns containedRecord
-											contained.push table:containedTable, record:containedRecord
-									else
+							if containedRecord
+								if _.isFunction rel.owns
+									if rel.owns containedRecord
 										contained.push table:containedTable, record:containedRecord
-							else
-								records = _.filter db[rel.table], (r) -> r[rel.field] == record.id
-								for record in records
-									contained.push table:rel.table, record:record
-					contained
+								else
+									contained.push table:containedTable, record:containedRecord
+						else
+							records = _.filter db[rel.table], (r) -> r[rel.field] == record.id
+							for record in records
+								contained.push table:rel.table, record:record
+				contained
 
 			contained: (db, table, record) ->
-					contained = []
-					for rel in @rels[table]
-						if rel.owns
-							if !rel.foreignKey
-								containedTable = if _.isFunction rel.table then rel.table record else rel.table
-								containedRecord = db[containedTable]?[record[rel.field]]
+				contained = []
+				for rel in @rels[table]
+					if rel.owns
+						if !rel.foreignKey
+							containedTable = if _.isFunction rel.table then rel.table record else rel.table
+							containedRecord = db[containedTable]?[record[rel.field]]
 
-								if containedRecord
-									if _.isFunction rel.owns
-										if rel.owns containedRecord
-											contained.push table:containedTable, record:containedRecord
-											contained = contained.concat @contained db, containedTable, containedRecord
-									else
+							if containedRecord
+								if _.isFunction rel.owns
+									if rel.owns containedRecord
 										contained.push table:containedTable, record:containedRecord
 										contained = contained.concat @contained db, containedTable, containedRecord
-							else
-								records = _.filter db[rel.table], (r) -> r[rel.field] == record.id
+								else
+									contained.push table:containedTable, record:containedRecord
+									contained = contained.concat @contained db, containedTable, containedRecord
+						else
+							records = _.filter db[rel.table], (r) -> r[rel.field] == record.id
 
-								for record in records
-									contained.push table:rel.table, record:record
-									contained = contained.concat @contained db, rel.table, record
-					contained
+							for record in records
+								contained.push table:rel.table, record:record
+								contained = contained.concat @contained db, rel.table, record
+				contained
 
 
 			owner: (db, table, record) ->
@@ -224,7 +224,6 @@ module.exports =
 					else
 						_.extend @changesForSubscribers[object][table][id], changes
 
-
 			setChangesForSubscribers: (object, changes) ->
 				if @user.subscribers[object]
 					@changesForSubscribers[object] = changes
@@ -275,6 +274,7 @@ module.exports =
 					r = Graph.owner @outline, r.table, r.record
 
 			addBranch: (relTable, newId, cb) ->
+				console.log 'addBranch', relTable, newId
 				@user.data "#{relTable}.#{newId}", ((data) =>
 					parse data,
 						error: (error) =>
@@ -351,7 +351,7 @@ module.exports =
 							else
 								for field of Graph.fields[table]
 									# test if we are changing a branch
-									if Graph.fields[table][field] == 'id' && (value = recordChanges[field])# && (rel = Graph.fieldRel?[table]?[field])
+									if Graph.fields[table][field] == 'id' && (value = recordChanges[field]) && (rel = Graph.fieldRel?[table]?[field])
 										relTable = if _.isFunction rel.table then rel.table @outline[table][id] else rel.table
 
 										if Graph.inGraph relTable
@@ -359,6 +359,7 @@ module.exports =
 											if !@outline[relTable]?[newId]
 												# console.log 'new branch', table, field, newId, relTable, value
 												++count
+												console.log table, field
 												@addBranch relTable, newId, -> done() if !--count
 											else
 												# if toDelete[relTable]?[newId]
@@ -470,6 +471,30 @@ module.exports =
 						delete @shared[object][userId]
 						if _.isEmpty @shared[object]
 							delete @shared[object]
+
+			addPermission: (object, userId, level) ->
+				if !userId
+					userId = null
+
+				if @permissions
+					@permissions[object] ?= {}
+					@permissions[object][userId] = level:parseInt level
+
+			updatePermission: (object, userId, level) ->
+				if !userId
+					userId = null
+				console.log object, userId, level, @permissions?[object]?[userId]
+				if @permissions?[object]?[userId]
+					@permissions[object][userId].level = parseInt level
+
+			deletePermission: (object, userId) ->
+				if !userId
+					userId = null
+				if @permissions
+					if @permissions[object]
+						delete @permissions[object][userId]
+						if _.isEmpty @permissions[object]
+							delete @permissions[object]
 
 
 			constructor: (id) ->
@@ -610,6 +635,20 @@ module.exports =
 
 			# userPermissions: ()
 
+			permissionLevel: (object, userId) ->
+				if @permissions?[object]?[userId]
+					return @permissions?[object]?[userId].level
+
+				if @shared?[object]?[userId]
+					return switch @shared[object][userId].role
+						when 0 then 3
+						when 1 then 2
+
+				if @permissions?[object]?[null]
+					return @permissions[object][null].level
+
+				return 0
+
 			hasPermissions: (clientId, action, args..., cb) ->
 				if clientId == 'Carl Sagan'
 					cb true
@@ -631,7 +670,7 @@ module.exports =
 							if userId == @id
 								cb true
 							else 
-								@initShared =>
+								@initPermissionData =>
 									@initOutline (=>
 										changes = args[0]
 										if @shared['/']?[userId]
@@ -661,10 +700,10 @@ module.exports =
 														permitted = false
 														while r
 															object = "#{r.table}.#{r.record.id}"
-															if perm = @shared[object]?[userId]
-																if perm.role == 0
+															if (perm = @permissionLevel(object, userId)) >= 2#@shared[object]?[userId]
+																if perm == 3
 																	permitted = true
-																else if perm.role == 1
+																else if perm == 2
 																	if table in ['feedback_items', 'feedback_item_replies', 'decision_suggestions', 'feedback_comments', 'feedback_comment_replies']
 																		if mode != 'create'
 																			if @outline[table][id.substr 1].creator_id == userId
@@ -692,6 +731,8 @@ module.exports =
 									cb false
 							else
 								if object == '@'
+									cb true
+									return
 									connection.query "SELECT 1 FROM shared WHERE user_id = #{userId} && with_user_id = #{@id} || user_id = #{@id} && with_user_id = #{userId}", (err, rows) =>
 										if rows.length
 											cb true
@@ -703,11 +744,14 @@ module.exports =
 										else
 											cb false
 								else
-									@initShared =>
-										if @shared[object]?[userId]
+									@initPermissionData =>
+										if @permissionLevel(object, userId) >= 1
 											cb true
 										else
 											cb false
+
+			initPermissionData: (cb) ->
+				@initShared => @initPermissions => cb()
 
 			initShared: (cb) ->
 				if !@shared
@@ -721,11 +765,21 @@ module.exports =
 				else
 					cb()
 
+			initPermissions: (cb) ->
+				if !@permissions
+					@permissions = {}
+					connection.query "SELECT user_id,object,level FROM permissions WHERE owner_id = #{@id}", (error, rows, fields) =>
+						for row in rows
+							@addPermission row.object, row.user_id, row.level
+						cb()
+				else
+					cb()
+
 			data: (object, cb, opts={}) ->
 				opts.claim ?= false
 				opts.collaborators ?= true
 				request {
-					url: "http://#{env.getUpdateServer()}/data.php?userId=#{@id}&object=#{object}&claim=#{if opts.claim then 1 else 0}&collaborators=#{if opts.collaborators then 1 else 0}",
+					url: "http://#{env.getUpdateServer()}/data.php?userId=#{@id}&object=#{object}&claim=#{if opts.claim then 1 else 0}&collaborators=#{if opts.collaborators then 1 else 0}#{if opts.clientId then "&clientId=#{opts.clientId}" else ''}",
 				}, (err, response, body) ->
 					cb body
 
