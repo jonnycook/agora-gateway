@@ -283,6 +283,10 @@ commands =
 				user = User.user userId
 				for object in objects
 					user.removeSubscriber clientId, object
+
+		if clientIdsByServerId[params.serverId]?[clientId]
+			delete clientIdsByServerId[params.serverId][clientId]
+
 		sendResponse ''
 
 	retrieve: (params, sendResponse) ->

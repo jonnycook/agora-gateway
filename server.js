@@ -349,7 +349,7 @@ commands = {
     return sendResponse('');
   },
   unsubscribeClient: function(params, sendResponse) {
-    var clientId, object, objects, subscriptions, user, userId, _i, _len;
+    var clientId, object, objects, subscriptions, user, userId, _i, _len, _ref;
     clientId = params.clientId;
     if (User.clientSubscriptions[clientId]) {
       subscriptions = _.cloneDeep(User.clientSubscriptions[clientId]);
@@ -361,6 +361,9 @@ commands = {
           user.removeSubscriber(clientId, object);
         }
       }
+    }
+    if ((_ref = clientIdsByServerId[params.serverId]) != null ? _ref[clientId] : void 0) {
+      delete clientIdsByServerId[params.serverId][clientId];
     }
     return sendResponse('');
   },
