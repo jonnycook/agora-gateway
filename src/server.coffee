@@ -372,6 +372,7 @@ start = ->
 			app.post "/#{commandName}", (req, res) ->				
 				process.nextTick -> executeCommand commandName, req.body, (response) ->
 					res.header 'Access-Control-Allow-Origin', 'http://webapp.agora.dev'
+					res.header 'Access-Control-Allow-Origin', 'http://agora.sh'
 					res.header 'Access-Control-Allow-Credentials', 'true'
 					res.send response
 

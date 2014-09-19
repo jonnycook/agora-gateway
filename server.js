@@ -521,6 +521,7 @@ start = function() {
       return process.nextTick(function() {
         return executeCommand(commandName, req.body, function(response) {
           res.header('Access-Control-Allow-Origin', 'http://webapp.agora.dev');
+          res.header('Access-Control-Allow-Origin', 'http://agora.sh');
           res.header('Access-Control-Allow-Credentials', 'true');
           return res.send(response);
         });
