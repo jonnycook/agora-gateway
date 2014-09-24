@@ -304,7 +304,7 @@ executeCommand = (type, params, sendResponse) ->
 		paramsStr = JSON.stringify(params)
 		if paramsStr.length > 300
 			paramsStr = paramsStr.substr(0, 300) + '...'.blue
-		console.log 'command', type, paramsStr
+		console.log 'command'.blue, type, paramsStr
 		commandError = commandResponse = logId = null
 		d = domain.create()
 		

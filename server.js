@@ -389,7 +389,7 @@ executeCommand = function(type, params, sendResponse) {
     if (paramsStr.length > 300) {
       paramsStr = paramsStr.substr(0, 300) + '...'.blue;
     }
-    console.log('command', type, paramsStr);
+    console.log('command'.blue, type, paramsStr);
     commandError = commandResponse = logId = null;
     d = domain.create();
     if (env.log) {
