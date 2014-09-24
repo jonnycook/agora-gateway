@@ -390,7 +390,7 @@ module.exports =
 					else
 						parse body,
 							error: (error) =>
-								console.log 'error', error
+								console.log 'execute error', error
 								cb 'error'
 							success: (body) =>
 								# testLog @outline

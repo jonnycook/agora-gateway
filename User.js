@@ -622,7 +622,7 @@ module.exports = function(env, userIdForClientId, connection) {
           } else {
             return parse(body, {
               error: function(error) {
-                console.log('error', error);
+                console.log('execute error', error);
                 return cb('error');
               },
               success: function(body) {
