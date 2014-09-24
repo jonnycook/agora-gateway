@@ -387,7 +387,7 @@ executeCommand = function(type, params, sendResponse) {
   if (commands[type]) {
     paramsStr = JSON.stringify(params);
     if (paramsStr.length > 300) {
-      paramsStr = paramsStr.substr(0, 300) + '...';
+      paramsStr = paramsStr.substr(0, 300) + '...'.blue;
     }
     console.log('command', type, paramsStr);
     commandError = commandResponse = logId = null;
