@@ -301,7 +301,10 @@ commands =
 shuttingDown = false
 executeCommand = (type, params, sendResponse) ->
 	if commands[type]
-		console.log 'command', type, JSON.stringify(params).substr 0, 300
+		paramsStr = JSON.stringify(params)
+		if paramsStr.length > 300
+			paramsStr = paramsStr.substr(0, 300) + '...'
+		console.log 'command', type, paramsStr
 		commandError = commandResponse = logId = null
 		d = domain.create()
 		

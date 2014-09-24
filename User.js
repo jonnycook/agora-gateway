@@ -1050,7 +1050,6 @@ module.exports = function(env, userIdForClientId, connection) {
               return;
             }
             if (action === 'init') {
-              console.log(userId, _this.id);
               if (userId === _this.id) {
                 return cb(true);
               } else {

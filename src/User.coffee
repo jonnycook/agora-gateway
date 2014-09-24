@@ -661,7 +661,6 @@ module.exports =
 							return
 
 						if action == 'init'
-							console.log userId, @id
 							if userId == @id
 								cb true
 							else
