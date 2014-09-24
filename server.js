@@ -385,7 +385,7 @@ shuttingDown = false;
 executeCommand = function(type, params, sendResponse) {
   var commandError, commandResponse, d, logId, timestamp;
   if (commands[type]) {
-    console.log('command', type, params);
+    console.log('command', type, params.substr(0, 100));
     commandError = commandResponse = logId = null;
     d = domain.create();
     if (env.log) {
