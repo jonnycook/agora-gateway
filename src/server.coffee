@@ -301,7 +301,7 @@ commands =
 shuttingDown = false
 executeCommand = (type, params, sendResponse) ->
 	if commands[type]
-		console.log 'command', type, params
+		console.log 'command', type, params.substr 0, 100
 		commandError = commandResponse = logId = null
 		d = domain.create()
 		
