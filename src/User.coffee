@@ -460,17 +460,38 @@ module.exports =
 				user = @user userId
 				user.operate -> cb user
 
-			addShared: (object, userId, role) ->
-				if @shared
-					@shared[object] ?= {}
-					@shared[object][userId] = role:parseInt role
+			addShared: (object, subscribeObject, userId, role) ->
+				@shared ?= {}
+				@shared[object] ?= {}
+				@shared[object][userId] = role:parseInt role
 
-			deleteShared: (object, userId) ->
+				if subscribeObject
+					@sharedBySubscribeObject ?= {}
+					@sharedBySubscribeObject[subscribeObject] ?= {}
+					if !@sharedBySubscribeObject[subscribeObject][userId]
+						@sharedBySubscribeObject[subscribeObject][userId] = 1
+					else
+						++@sharedBySubscribeObject[subscribeObject][userId]
+
+			deleteShared: (object, subscribeObject, userId) ->
 				if @shared
 					if @shared[object]
 						delete @shared[object][userId]
 						if _.isEmpty @shared[object]
 							delete @shared[object]
+							if _.isEmpty @shared
+								delete @shared
+
+					if subscribeObject
+						if @sharedBySubscribeObject?[subscribeObject]?[userId]
+							--@sharedBySubscribeObject[subscribeObject][userId]
+							if !@sharedBySubscribeObject[subscribeObject][userId]
+								delete @sharedBySubscribeObject[subscribeObject][userId]
+								if _.isEmpty @sharedBySubscribeObject[subscribeObject]
+									delete @sharedBySubscribeObject[subscribeObject]
+									if _.isEmpty @sharedBySubscribeObject
+										delete @sharedBySubscribeObject
+
 
 			addPermission: (object, userId, level) ->
 				if !userId
@@ -647,6 +668,9 @@ module.exports =
 				if @permissions?[object]?[null]
 					return @permissions[object][null].level
 
+				if @sharedBySubscribeObject?[object]?[userId]
+					return 1
+
 				return 0
 
 			hasPermissions: (clientId, action, args..., cb) ->
@@ -755,9 +779,10 @@ module.exports =
 			initShared: (cb) ->
 				if !@shared
 					@shared = {}
-					connection.query "SELECT with_user_id, object, role FROM shared WHERE user_id = #{@id}", (error, rows, fields) =>
+					@
+					connection.query "SELECT with_user_id, object, subscribe_object, role FROM shared WHERE user_id = #{@id}", (error, rows, fields) =>
 						for row in rows
-							@addShared row.object, row.with_user_id, row.role
+							@addShared row.object, row.subscribe_object, row.with_user_id, row.role
 							# @shared[row.object] ?= {}
 							# @shared[row.object][row.with_user_id] = role:row.role
 						cb()

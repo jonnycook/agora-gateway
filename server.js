@@ -88,6 +88,8 @@ app.get('/debug', function(req, res) {
   console.log(user.outline);
   console.log('=user.shared=');
   console.log(user.shared);
+  console.log('=user.sharedBySubscribeObject=');
+  console.log(user.sharedBySubscribeObject);
   console.log('=user.permissions=');
   console.log(user.permissions);
   console.log('=User.clientSubscriptions=');
@@ -225,13 +227,14 @@ commands = {
       };
       if (action === 'create') {
         if (parseInt(record.user_id) === user.id) {
-          user.addShared(record.object, record.with_user_id, record.role);
+          user.addShared(record.object, record.subscribe_object, record.with_user_id, record.role);
         }
         changes.shared_objects['G' + record.id] = {
           user_id: 'G' + record.user_id,
           title: record.title,
           with_user_id: 'G' + record.with_user_id,
           object: record.object,
+          subscribe_object: record.subscribe_object,
           user_name: record.user_name,
           with_user_name: record.with_user_name,
           role: record.role
@@ -244,7 +247,7 @@ commands = {
       } else if (action === 'delete') {
         if (record.with_user_id) {
           withUserId = parseInt(record.with_user_id);
-          user.deleteShared(record.object, withUserId);
+          user.deleteShared(record.object, record.subscribe_object, withUserId);
           clientIds = clientsIdsForUserId[withUserId];
           if (clientIds) {
             for (_i = 0, _len = clientIds.length; _i < _len; _i++) {

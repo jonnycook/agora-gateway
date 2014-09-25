@@ -733,24 +733,56 @@ module.exports = function(env, userIdForClientId, connection) {
       });
     };
 
-    User.prototype.addShared = function(object, userId, role) {
-      var _base3;
-      if (this.shared) {
-        if ((_base3 = this.shared)[object] == null) {
-          _base3[object] = {};
+    User.prototype.addShared = function(object, subscribeObject, userId, role) {
+      var _base3, _base4;
+      if (this.shared == null) {
+        this.shared = {};
+      }
+      if ((_base3 = this.shared)[object] == null) {
+        _base3[object] = {};
+      }
+      this.shared[object][userId] = {
+        role: parseInt(role)
+      };
+      if (subscribeObject) {
+        if (this.sharedBySubscribeObject == null) {
+          this.sharedBySubscribeObject = {};
         }
-        return this.shared[object][userId] = {
-          role: parseInt(role)
-        };
+        if ((_base4 = this.sharedBySubscribeObject)[subscribeObject] == null) {
+          _base4[subscribeObject] = {};
+        }
+        if (!this.sharedBySubscribeObject[subscribeObject][userId]) {
+          return this.sharedBySubscribeObject[subscribeObject][userId] = 1;
+        } else {
+          return ++this.sharedBySubscribeObject[subscribeObject][userId];
+        }
       }
     };
 
-    User.prototype.deleteShared = function(object, userId) {
+    User.prototype.deleteShared = function(object, subscribeObject, userId) {
+      var _ref, _ref1;
       if (this.shared) {
         if (this.shared[object]) {
           delete this.shared[object][userId];
           if (_.isEmpty(this.shared[object])) {
-            return delete this.shared[object];
+            delete this.shared[object];
+            if (_.isEmpty(this.shared)) {
+              delete this.shared;
+            }
+          }
+        }
+        if (subscribeObject) {
+          if ((_ref = this.sharedBySubscribeObject) != null ? (_ref1 = _ref[subscribeObject]) != null ? _ref1[userId] : void 0 : void 0) {
+            --this.sharedBySubscribeObject[subscribeObject][userId];
+            if (!this.sharedBySubscribeObject[subscribeObject][userId]) {
+              delete this.sharedBySubscribeObject[subscribeObject][userId];
+              if (_.isEmpty(this.sharedBySubscribeObject[subscribeObject])) {
+                delete this.sharedBySubscribeObject[subscribeObject];
+                if (_.isEmpty(this.sharedBySubscribeObject)) {
+                  return delete this.sharedBySubscribeObject;
+                }
+              }
+            }
           }
         }
       }
@@ -1017,7 +1049,7 @@ module.exports = function(env, userIdForClientId, connection) {
     };
 
     User.prototype.permissionLevel = function(object, userId) {
-      var _ref, _ref1, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7;
+      var _ref, _ref1, _ref2, _ref3, _ref4, _ref5, _ref6, _ref7, _ref8, _ref9;
       if ((_ref = this.permissions) != null ? (_ref1 = _ref[object]) != null ? _ref1[userId] : void 0 : void 0) {
         return (_ref2 = this.permissions) != null ? (_ref3 = _ref2[object]) != null ? _ref3[userId].level : void 0 : void 0;
       }
@@ -1031,6 +1063,9 @@ module.exports = function(env, userIdForClientId, connection) {
       }
       if ((_ref6 = this.permissions) != null ? (_ref7 = _ref6[object]) != null ? _ref7[null] : void 0 : void 0) {
         return this.permissions[object][null].level;
+      }
+      if ((_ref8 = this.sharedBySubscribeObject) != null ? (_ref9 = _ref8[object]) != null ? _ref9[userId] : void 0 : void 0) {
+        return 1;
       }
       return 0;
     };
@@ -1193,12 +1228,13 @@ module.exports = function(env, userIdForClientId, connection) {
     User.prototype.initShared = function(cb) {
       if (!this.shared) {
         this.shared = {};
-        return connection.query("SELECT with_user_id, object, role FROM shared WHERE user_id = " + this.id, (function(_this) {
+        this;
+        return connection.query("SELECT with_user_id, object, subscribe_object, role FROM shared WHERE user_id = " + this.id, (function(_this) {
           return function(error, rows, fields) {
             var row, _j, _len1;
             for (_j = 0, _len1 = rows.length; _j < _len1; _j++) {
               row = rows[_j];
-              _this.addShared(row.object, row.with_user_id, row.role);
+              _this.addShared(row.object, row.subscribe_object, row.with_user_id, row.role);
             }
             return cb();
           };
