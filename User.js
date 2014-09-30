@@ -790,6 +790,7 @@ module.exports = function(env, userIdForClientId, connection) {
 
     User.prototype.addPermission = function(object, userId, level) {
       var _base3;
+      console.log('add', object, userId, level);
       if (!userId) {
         userId = null;
       }
@@ -805,10 +806,10 @@ module.exports = function(env, userIdForClientId, connection) {
 
     User.prototype.updatePermission = function(object, userId, level) {
       var _ref, _ref1, _ref2, _ref3;
+      console.log('update', object, userId, level, (_ref = this.permissions) != null ? (_ref1 = _ref[object]) != null ? _ref1[userId] : void 0 : void 0);
       if (!userId) {
         userId = null;
       }
-      console.log(object, userId, level, (_ref = this.permissions) != null ? (_ref1 = _ref[object]) != null ? _ref1[userId] : void 0 : void 0);
       if ((_ref2 = this.permissions) != null ? (_ref3 = _ref2[object]) != null ? _ref3[userId] : void 0 : void 0) {
         return this.permissions[object][userId].level = parseInt(level);
       }

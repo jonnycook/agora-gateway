@@ -494,6 +494,7 @@ module.exports =
 
 
 			addPermission: (object, userId, level) ->
+				console.log 'add', object, userId, level
 				if !userId
 					userId = null
 
@@ -502,9 +503,9 @@ module.exports =
 					@permissions[object][userId] = level:parseInt level
 
 			updatePermission: (object, userId, level) ->
+				console.log 'update', object, userId, level, @permissions?[object]?[userId]
 				if !userId
 					userId = null
-				console.log object, userId, level, @permissions?[object]?[userId]
 				if @permissions?[object]?[userId]
 					@permissions[object][userId].level = parseInt level
 
