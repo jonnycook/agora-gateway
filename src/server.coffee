@@ -464,6 +464,7 @@ else
 			processLogsCol = mongoDb.collection "processLogs_#{serverProcessId}"
 
 			count = 0
+			length = _.size portServers
 			for id,portServer of portServers
 				request {
 					url: "http://#{portServer}/gateway/started",
@@ -471,9 +472,8 @@ else
 					form:
 						serverId:serverId
 				}, (error) ->
-					console.log portServer
 					console.log 'has error', error if error
-					if ++count == portServers.length
+					if ++count == length
 						start()
 
 	doInit()

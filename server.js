@@ -639,10 +639,11 @@ if (process.argv[2]) {
 } else {
   doInit = function() {
     return MongoClient.connect(env.mongoDb, function(err, db) {
-      var count, id, portServer, _results;
+      var count, id, length, portServer, _results;
       mongoDb = db;
       processLogsCol = mongoDb.collection("processLogs_" + serverProcessId);
       count = 0;
+      length = _.size(portServers);
       _results = [];
       for (id in portServers) {
         portServer = portServers[id];
@@ -653,11 +654,10 @@ if (process.argv[2]) {
             serverId: serverId
           }
         }, function(error) {
-          console.log(portServer);
           if (error) {
             console.log('has error', error);
           }
-          if (++count === portServers.length) {
+          if (++count === length) {
             return start();
           }
         }));
