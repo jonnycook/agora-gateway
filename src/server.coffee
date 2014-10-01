@@ -17,7 +17,11 @@ else
 # 	winston = require('winston')
 # 	winston.add winston.transports.File, filename: "errors_#{serverProcessId}.log", json:false, handleExceptions:true
 
-portForClient = (clientId) -> portServers[routerIdForClientId[clientId]]
+portForClient = (clientId) -> 
+	if routerIdForClientId[clientId]
+		portServers[routerIdForClientId[clientId]]
+	else
+		throw new Error "no router id for #{clientId}"
 
 portServers = null
 if env.portServers
@@ -38,7 +42,7 @@ MongoClient = require('mongodb').MongoClient
 
 mongoDb = null
 processLogsCol = null
-clientIdsByServerId = {}
+clientIdsByRouterId = {}
 clientsIdsForUserId = {}
 
 routerIdForClientId = {}
@@ -89,8 +93,8 @@ app.get '/debug', (req, res) ->
 	console.log user.permissions
 	console.log '=User.clientSubscriptions='
 	console.log User.clientSubscriptions
-	console.log '=clientIdsByServerId='
-	console.log clientIdsByServerId
+	console.log '=clientIdsByRouterId='
+	console.log clientIdsByRouterId
 	console.log '=routerIdForClientId='
 	console.log routerIdForClientId
 	res.send ''
@@ -144,8 +148,8 @@ commands =
 
 	init: (user, params, sendResponse) ->
 		if params.serverId
-			clientIdsByServerId[params.serverId] ?= {}
-			clientIdsByServerId[params.serverId][params.clientId] = true
+			clientIdsByRouterId[params.serverId] ?= {}
+			clientIdsByRouterId[params.serverId][params.clientId] = true
 			routerIdForClientId[params.clientId] = params.serverId
 
 		user.hasPermissions params.clientId, 'init', (permission) ->
@@ -270,8 +274,8 @@ commands =
 
 	subscribe: (user, params, sendResponse) ->
 		if params.serverId
-			clientIdsByServerId[params.serverId] ?= {}
-			clientIdsByServerId[params.serverId][params.clientId] = true
+			clientIdsByRouterId[params.serverId] ?= {}
+			clientIdsByRouterId[params.serverId][params.clientId] = true
 			routerIdForClientId[params.clientId] = params.serverId
 
 
@@ -304,8 +308,8 @@ commands =
 				for object in objects
 					user.removeSubscriber clientId, object
 
-		if clientIdsByServerId[params.serverId]?[clientId]
-			delete clientIdsByServerId[params.serverId][clientId]
+		if clientIdsByRouterId[params.serverId]?[clientId]
+			delete clientIdsByRouterId[params.serverId][clientId]
 
 		if routerIdForClientId[params.clientId]
 			delete routerIdForClientId[params.clientId]
@@ -402,15 +406,15 @@ start = ->
 					res.send response
 
 	app.post '/port/started', (req, res) ->
-		if clientIdsByServerId[req.body.serverId]
-			clientIds = clientIdsByServerId[req.body.serverId]
+		if clientIdsByRouterId[req.body.serverId]
+			clientIds = clientIdsByRouterId[req.body.serverId]
 			for clientId,__ of clientIds
 				subscriptions = _.cloneDeep User.clientSubscriptions[clientId]
 				for userId, objects of subscriptions
 					user = User.user userId
 					for object in objects
 						user.removeSubscriber clientId, object
-			delete clientIdsByServerId[req.body.serverId]
+			delete clientIdsByRouterId[req.body.serverId]
 		res.send 'ok'
 
 
