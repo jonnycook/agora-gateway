@@ -27,8 +27,8 @@ if (env.portServers) {
   portServers = env.portServers;
 } else {
   portServers = {
-    1: '66.228.50.174',
-    2: '23.239.24.188'
+    1: '66.228.50.174:3001',
+    2: '23.239.24.188:3001'
   };
 }
 
@@ -113,6 +113,8 @@ app.get('/debug', function(req, res) {
   console.log(User.clientSubscriptions);
   console.log('=clientIdsByServerId=');
   console.log(clientIdsByServerId);
+  console.log('=routerIdForClientId=');
+  console.log(routerIdForClientId);
   return res.send('');
 });
 
@@ -386,6 +388,9 @@ commands = {
     }
     if ((_ref = clientIdsByServerId[params.serverId]) != null ? _ref[clientId] : void 0) {
       delete clientIdsByServerId[params.serverId][clientId];
+    }
+    if (routerIdForClientId[params.clientId]) {
+      delete routerIdForClientId[params.clientId];
     }
     return sendResponse('');
   },

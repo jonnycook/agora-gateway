@@ -24,8 +24,8 @@ if env.portServers
 	portServers = env.portServers
 else
 	portServers =
-		1:'66.228.50.174'
-		2:'23.239.24.188'
+		1:'66.228.50.174:3001'
+		2:'23.239.24.188:3001'
 
 mysql = require 'mysql'
 _ = require 'lodash'
@@ -91,6 +91,8 @@ app.get '/debug', (req, res) ->
 	console.log User.clientSubscriptions
 	console.log '=clientIdsByServerId='
 	console.log clientIdsByServerId
+	console.log '=routerIdForClientId='
+	console.log routerIdForClientId
 	res.send ''
 
 app.get '/sync', (req, res) ->
@@ -304,6 +306,9 @@ commands =
 
 		if clientIdsByServerId[params.serverId]?[clientId]
 			delete clientIdsByServerId[params.serverId][clientId]
+
+		if routerIdForClientId[params.clientId]
+			delete routerIdForClientId[params.clientId]
 
 		sendResponse ''
 
