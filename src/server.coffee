@@ -463,7 +463,7 @@ else
 				processLogsCol = mongoDb.collection "processLogs_#{serverProcessId}"
 
 				count = 0
-				for portServer in portServers
+				for id,portServer of portServers
 					request {
 						url: "http://#{portServer}/gateway/started",
 						method:'post'

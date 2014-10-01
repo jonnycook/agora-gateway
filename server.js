@@ -640,13 +640,13 @@ if (process.argv[2]) {
   doInit = function() {
     return env.init(function() {
       return MongoClient.connect(env.mongoDb, function(err, db) {
-        var count, portServer, _i, _len, _results;
+        var count, id, portServer, _results;
         mongoDb = db;
         processLogsCol = mongoDb.collection("processLogs_" + serverProcessId);
         count = 0;
         _results = [];
-        for (_i = 0, _len = portServers.length; _i < _len; _i++) {
-          portServer = portServers[_i];
+        for (id in portServers) {
+          portServer = portServers[id];
           _results.push(request({
             url: "http://" + portServer + "/gateway/started",
             method: 'post',
