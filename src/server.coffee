@@ -1,5 +1,4 @@
 serverProcessId = new Date().getTime()
-serverId = 1
 
 domain = require 'domain'
 
@@ -12,6 +11,9 @@ if process.argv[2]
 	env = require './env.test'
 else
 	env = require './env'
+
+serverId = evn.serverId
+
 
 # if env.logErrors
 # 	winston = require('winston')
@@ -457,22 +459,22 @@ if process.argv[2]
 					next()
 else
 	doInit = ->
-		env.init ->
-			MongoClient.connect env.mongoDb, (err, db) ->
-				mongoDb = db
-				processLogsCol = mongoDb.collection "processLogs_#{serverProcessId}"
+		MongoClient.connect env.mongoDb, (err, db) ->
+			mongoDb = db
+			processLogsCol = mongoDb.collection "processLogs_#{serverProcessId}"
 
-				count = 0
-				for id,portServer of portServers
-					request {
-						url: "http://#{portServer}/gateway/started",
-						method:'post'
-						form:
-							serverId:serverId
-					}, (error) ->
-						console.log 'has error', error if error
-						if ++count == portServers.length
-							start()
+			count = 0
+			for id,portServer of portServers
+				request {
+					url: "http://#{portServer}/gateway/started",
+					method:'post'
+					form:
+						serverId:serverId
+				}, (error) ->
+					console.log pertServer
+					console.log 'has error', error if error
+					if ++count == portServers.length
+						start()
 
 	doInit()
 

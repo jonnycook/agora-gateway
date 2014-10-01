@@ -5,8 +5,6 @@ var MongoClient, User, app, bodyParser, clientIdsByRouterId, clientsIdsForUserId
 
 serverProcessId = new Date().getTime();
 
-serverId = 1;
-
 domain = require('domain');
 
 env = null;
@@ -16,6 +14,8 @@ if (process.argv[2]) {
 } else {
   env = require('./env');
 }
+
+serverId = evn.serverId;
 
 portForClient = function(clientId) {
   if (routerIdForClientId[clientId]) {
@@ -638,32 +638,31 @@ if (process.argv[2]) {
   }
 } else {
   doInit = function() {
-    return env.init(function() {
-      return MongoClient.connect(env.mongoDb, function(err, db) {
-        var count, id, portServer, _results;
-        mongoDb = db;
-        processLogsCol = mongoDb.collection("processLogs_" + serverProcessId);
-        count = 0;
-        _results = [];
-        for (id in portServers) {
-          portServer = portServers[id];
-          _results.push(request({
-            url: "http://" + portServer + "/gateway/started",
-            method: 'post',
-            form: {
-              serverId: serverId
-            }
-          }, function(error) {
-            if (error) {
-              console.log('has error', error);
-            }
-            if (++count === portServers.length) {
-              return start();
-            }
-          }));
-        }
-        return _results;
-      });
+    return MongoClient.connect(env.mongoDb, function(err, db) {
+      var count, id, portServer, _results;
+      mongoDb = db;
+      processLogsCol = mongoDb.collection("processLogs_" + serverProcessId);
+      count = 0;
+      _results = [];
+      for (id in portServers) {
+        portServer = portServers[id];
+        _results.push(request({
+          url: "http://" + portServer + "/gateway/started",
+          method: 'post',
+          form: {
+            serverId: serverId
+          }
+        }, function(error) {
+          console.log(pertServer);
+          if (error) {
+            console.log('has error', error);
+          }
+          if (++count === portServers.length) {
+            return start();
+          }
+        }));
+      }
+      return _results;
     });
   };
   doInit();
