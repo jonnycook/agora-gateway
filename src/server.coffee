@@ -12,7 +12,7 @@ if process.argv[2]
 else
 	env = require './env'
 
-serverId = evn.serverId
+serverId = env.serverId
 
 
 # if env.logErrors

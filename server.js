@@ -15,7 +15,7 @@ if (process.argv[2]) {
   env = require('./env');
 }
 
-serverId = evn.serverId;
+serverId = env.serverId;
 
 portForClient = function(clientId) {
   if (routerIdForClientId[clientId]) {
