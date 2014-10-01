@@ -653,7 +653,7 @@ if (process.argv[2]) {
             serverId: serverId
           }
         }, function(error) {
-          console.log(pertServer);
+          console.log(portServer);
           if (error) {
             console.log('has error', error);
           }

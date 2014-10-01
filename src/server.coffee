@@ -471,7 +471,7 @@ else
 					form:
 						serverId:serverId
 				}, (error) ->
-					console.log pertServer
+					console.log portServer
 					console.log 'has error', error if error
 					if ++count == portServers.length
 						start()
