@@ -20,14 +20,14 @@ testLog = function() {
   return console.log.apply(console, ['TEST:'.green].concat(__slice.call(args)));
 };
 
-module.exports = function(env, userIdForClientId, connection) {
+module.exports = function(env, userIdForClientId, connection, portForClient) {
   var Graph, Record, Response, UpdateOperation, User, graphDef, groupClientIdsByPort, name, r, rel, rels, table, _base, _base1, _base2, _i, _len;
   groupClientIdsByPort = function(clientIds) {
     var clientId, grouped, port, _i, _len;
     grouped = {};
     for (_i = 0, _len = clientIds.length; _i < _len; _i++) {
       clientId = clientIds[_i];
-      port = env.portForClient(clientId);
+      port = portForClient(clientId);
       if (grouped[port] == null) {
         grouped[port] = [];
       }

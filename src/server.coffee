@@ -17,6 +17,16 @@ else
 # 	winston = require('winston')
 # 	winston.add winston.transports.File, filename: "errors_#{serverProcessId}.log", json:false, handleExceptions:true
 
+portForClient = (clientId) -> portServers[routerIdForClientId[clientId]]
+
+portServers = null
+if env.portServers
+	portServers = env.portServers
+else
+	portServers =
+		1:'66.228.50.174'
+		2:'23.239.24.188'
+
 mysql = require 'mysql'
 _ = require 'lodash'
 express = require 'express'
@@ -30,6 +40,8 @@ mongoDb = null
 processLogsCol = null
 clientIdsByServerId = {}
 clientsIdsForUserId = {}
+
+routerIdForClientId = {}
 
 {parse:parse} = require './utils'
 
@@ -58,7 +70,7 @@ userIdForClientId = (clientId, cb) ->
 			else
 				cb null
 
-User = require('./User') env, userIdForClientId, connection
+User = require('./User') env, userIdForClientId, connection, portForClient
 
 app.get '/debug', (req, res) ->
 	console.log '====DEBUG===='
@@ -132,6 +144,7 @@ commands =
 		if params.serverId
 			clientIdsByServerId[params.serverId] ?= {}
 			clientIdsByServerId[params.serverId][params.clientId] = true
+			routerIdForClientId[params.clientId] = params.serverId
 
 		user.hasPermissions params.clientId, 'init', (permission) ->
 			if permission
@@ -257,6 +270,8 @@ commands =
 		if params.serverId
 			clientIdsByServerId[params.serverId] ?= {}
 			clientIdsByServerId[params.serverId][params.clientId] = true
+			routerIdForClientId[params.clientId] = params.serverId
+
 
 		user.hasPermissions params.clientId, 'subscribe', params.object, params.key, (permission) ->
 			if permission
@@ -439,7 +454,7 @@ else
 				processLogsCol = mongoDb.collection "processLogs_#{serverProcessId}"
 
 				count = 0
-				for portServer in env.portServers
+				for portServer in portServers
 					request {
 						url: "http://#{portServer}/gateway/started",
 						method:'post'
@@ -447,7 +462,7 @@ else
 							serverId:serverId
 					}, (error) ->
 						console.log 'has error', error if error
-						if ++count == env.portServers.length
+						if ++count == portServers.length
 							start()
 
 	doInit()

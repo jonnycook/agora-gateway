@@ -7,13 +7,12 @@ graph = require './graph'
 testLog = (args...) ->
 	console.log 'TEST:'.green, args...
 
-
 module.exports = 
-	(env, userIdForClientId, connection) ->
+	(env, userIdForClientId, connection, portForClient) ->
 		groupClientIdsByPort = (clientIds) ->
 			grouped = {}
 			for clientId in clientIds
-				port = env.portForClient clientId
+				port = portForClient clientId
 				grouped[port] ?= []
 				grouped[port].push clientId
 			grouped
