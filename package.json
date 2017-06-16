@@ -1,0 +1,32 @@
+{
+  "name": "gateway",
+  "version": "1.0.0",
+  "description": "",
+  "main": "User.js",
+  "dependencies": {
+    "body-parser": "^1.16.0",
+    "colors": "^1.1.2",
+    "express": "^4.14.1",
+    "lodash": "^4.17.4",
+    "mongo": "^0.1.0",
+    "mongodb": "^2.2.22",
+    "mysql": "^2.13.0",
+    "raven": "^1.1.1",
+    "request": "^2.79.0",
+    "source-map-support": "^0.4.11",
+    "winston": "^2.3.1",
+    "ws": "^2.0.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "watch": "coffee -m -o . -w src/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "root@66.228.54.96:~/gateway.git"
+  },
+  "author": "",
+  "license": "ISC"
+}

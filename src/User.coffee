@@ -252,9 +252,9 @@ module.exports =
 
 		class UpdateOperation
 			constructor: (@user, @response) ->
-				@subscribers = user.subscribers
-				@id = user.id
-				@outline = user.outline
+				@subscribers = @user.subscribers
+				@id = @user.id
+				@outline = @user.outline
 
 			addChanges: (table, id, changes) =>
 				# testLog 'add', table, id, changes
@@ -378,7 +378,7 @@ module.exports =
 
 			execute: (@clientId, updateToken, changes, cb) ->
 				request {
-					url: "http://#{env.getUpdateServer()}/update.php?clientId=#{clientId}&userId=#{@id}",
+					url: "http://#{env.getUpdateServer()}/update.php?clientId=#{@clientId}&userId=#{@id}",
 					method:'post'
 					form:
 						updateToken:updateToken

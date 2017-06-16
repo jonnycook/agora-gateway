@@ -6,6 +6,10 @@ domain = require 'domain'
 # process.exit()
 
 
+Raven = require 'raven'
+Raven.config('https://e6239e4ec8144685acfa856f7266bbf6:cf3bb2e33d204bd5af4178bf28b01828@sentry.io/135682').install();
+
+
 env = null
 if process.argv[2]
 	env = require './env.test'
@@ -160,6 +164,7 @@ commands =
 					user.addSubscriber params.clientId, '*'
 
 				user.data '*', (data) ->
+					console.log data
 					sendResponse data
 			else
 				sendResponse 'not allowed'
@@ -402,6 +407,7 @@ start = ->
 	for commandName, __ of commands
 		do (commandName) ->
 			app.post "/#{commandName}", (req, res) ->				
+				console.log commandName
 				process.nextTick -> executeCommand commandName, req.body, (response) ->
 					res.header 'Access-Control-Allow-Origin', env.webappOrigin
 					res.header 'Access-Control-Allow-Credentials', 'true'
